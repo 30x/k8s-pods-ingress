@@ -1,0 +1,11 @@
+*.iml
+
+.classpath
+.project
+.projectile
+.tern-project
+
+.idea/
+.settings/
+typings/
+vendor/

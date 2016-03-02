@@ -1,0 +1,4 @@
+package: github.com/30x/nginx-ingress
+import:
+- package: k8s.io/kubernetes
+
