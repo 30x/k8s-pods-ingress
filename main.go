@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"log"
 	"os"
-	//	"os/exec"
+	"os/exec"
 	"strconv"
 	"strings"
 	"text/template"
@@ -20,7 +22,11 @@ import (
 )
 
 const (
-	nginxConf = `
+	keyMicroservices = "microservices"
+	keyPathPort      = "pathPort"
+	keyPublicPaths   = "publicPaths"
+	keyTrafficHosts  = "trafficHosts"
+	nginxConf        = `
 events {
   worker_connections 1024;
 }
@@ -42,7 +48,8 @@ http {
     location {{$path}} {
       proxy_set_header Host $host;
       proxy_pass http://{{$target}};
-    }{{end}}
+    }
+{{end}}
   }
 
 {{end}}}
@@ -74,9 +81,9 @@ func buildNginx(cache map[string]api.Pod, nginxConfPath string, tmpl template.Te
 
 	// Process the pods to populate the nginx configuration data structure
 	for _, pod := range cache {
-		annotation, ok := pod.ObjectMeta.Annotations["trafficHosts"]
+		annotation, ok := pod.ObjectMeta.Annotations[keyTrafficHosts]
 
-		// This pod does not have the traffic_hosts annotation set
+		// This pod does not have the trafficHosts annotation set
 		if !ok {
 			log.Printf("  Pod (%s) skipped: Missing 'trafficHosts' annotation\n", pod.Name)
 			continue
@@ -84,7 +91,7 @@ func buildNginx(cache map[string]api.Pod, nginxConfPath string, tmpl template.Te
 
 		hosts := strings.Split(annotation, " ")
 
-		annotation, ok = pod.ObjectMeta.Annotations["publicPaths"]
+		annotation, ok = pod.ObjectMeta.Annotations[keyPublicPaths]
 
 		var paths []string
 
@@ -95,7 +102,7 @@ func buildNginx(cache map[string]api.Pod, nginxConfPath string, tmpl template.Te
 			paths = strings.Split(annotation, " ")
 		}
 
-		annotation, ok = pod.ObjectMeta.Annotations["pathPort"]
+		annotation, ok = pod.ObjectMeta.Annotations[keyPathPort]
 
 		if !ok {
 			annotation = "80"
@@ -162,15 +169,20 @@ func buildNginx(cache map[string]api.Pod, nginxConfPath string, tmpl template.Te
 		}
 	}
 
+	var doc bytes.Buffer
+
 	// Useful for debugging
-	// if err := tmpl.Execute(os.Stdout, tmplData); err != nil {
-	// 	log.Fatalf("Failed to write template %v", err)
-	// }
+	if err := tmpl.Execute(&doc, tmplData); err != nil {
+		log.Fatalf("Failed to write template %v", err)
+	}
+
+	log.Println("Generated nginx.conf")
+	log.Println(doc.String())
 
 	// Create the nginx.conf file based on the template
 	if w, err := os.Create(nginxConfPath); err != nil {
 		log.Fatalf("Failed to open %s: %v", nginxConfPath, err)
-	} else if err := tmpl.Execute(w, cache); err != nil {
+	} else if _, err := io.WriteString(w, doc.String()); err != nil {
 		log.Fatalf("Failed to write template %v", err)
 	}
 
@@ -201,11 +213,15 @@ func hash(s string) uint32 {
 Run a command in a shell.
 */
 func shellOut(cmd string) {
-	// out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
+	// Do not start nginx if we're running outside the container
+	if os.Getenv("KUBE_HOST") == "" {
+		out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 
-	// if err != nil {
-	// 	log.Fatalf("Failed to execute %v: %v, err: %v", cmd, string(out), err)
-	// }
+		if err != nil {
+			log.Fatalf("Failed to execute %v: %v, err: %v", cmd, string(out), err)
+		}
+
+	}
 }
 
 /*
@@ -214,9 +230,9 @@ the nginx configuration based on pertinent Pod events.  To be considered for thi
 `microservice` label set to true.  Then the the pod needs to have annotations whose keys follow the following naming
 convention:
 
-  * traffic_hosts: This is a space delimited list of public hosts that route to the pod(s)
-  * public_paths: This is the space delimited list of public paths that route to the pod(s)
-  * path_port: This is the pod port that the
+  * trafficHosts: This is a space delimited list of public hosts that route to the pod(s)
+  * publicPaths: This is the space delimited list of public paths that route to the pod(s)
+  * pathPort: This is the pod port that the
 
 This application is written to run inside the Kubernetes cluster but for outside of Kubernetes you can set the
 `KUBE_HOST` and `NGINX_CONF` environment variables.
@@ -288,14 +304,14 @@ func main() {
 		cache[pod.Name] = pod
 	}
 
+	// Start nginx with the default configuration to start nginx as a daemon
+	shellOut("nginx")
+
 	// Parse the nginx.conf template
 	tmpl, _ := template.New("nginx").Parse(nginxConf)
 
 	// Generate the nginx configuration
 	buildNginx(cache, nginxConfPath, *tmpl)
-
-	// Start nginx
-	shellOut("nginx")
 
 	// Update the watch options with the resource version
 	options.ResourceVersion = pods.ListMeta.ResourceVersion
@@ -364,10 +380,10 @@ func main() {
 								delete(cache, pod.Name)
 							} else {
 								// If the annotations we're interested in change, rebuild
-								if pod.Annotations["microservices"] != cache[pod.Name].Annotations["microservices"] ||
-									pod.Annotations["traffic_hosts"] != cache[pod.Name].Annotations["traffic_hosts"] ||
-									pod.Annotations["public_paths"] != cache[pod.Name].Annotations["public_paths"] ||
-									pod.Annotations["path_port"] != cache[pod.Name].Annotations["path_port"] {
+								if pod.Annotations[keyMicroservices] != cache[pod.Name].Annotations[keyMicroservices] ||
+									pod.Annotations[keyTrafficHosts] != cache[pod.Name].Annotations[keyTrafficHosts] ||
+									pod.Annotations[keyPublicPaths] != cache[pod.Name].Annotations[keyPublicPaths] ||
+									pod.Annotations[keyPathPort] != cache[pod.Name].Annotations[keyPathPort] {
 									needsRebuild = true
 								}
 

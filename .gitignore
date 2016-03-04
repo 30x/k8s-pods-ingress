@@ -4,6 +4,7 @@
 .project
 .projectile
 .tern-project
+k8s-pods-ingress
 
 .idea/
 .settings/

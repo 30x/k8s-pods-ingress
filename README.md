@@ -31,6 +31,31 @@ cache accordingly based on the pod event.  *(The idea here was to allow for an i
 use the events for as quick a turnaround as possible.)*  There is a rate limiter in place that only processes events
 every 10 seconds.
 
+# Building and Running
+
+If you're testing this outside of Kubernetes, you can just use `go build` followed by
+`KUBE_HOST=... NGINX_CONF=... ./k8s-pods-ingress`.  If you're building this to run on Kubernetes, you'll need to do the
+following:
+
+* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
+* `docker build ...`
+* `docker tag ...`
+* `docker push ...`
+
+*(The `...` are there because your Docker comands will likely be different than mine or someone else's)*  We have an
+example `rc.yaml` for deploying the k8s-pods-ingress to Kubernetes.  Here is how I test locally:
+
+* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
+* `docker build -t k8s-pods-ingress .`
+* `docker tag -f k8s-pods-ingress 192.168.64.1:5000/k8s-pods-ingress`
+* `docker push 192.168.64.1:5000/k8s-pods-ingress`
+* `kubectl create -f rc.yaml`
+
+**Note:** This ingress is written to be ran within Kubernetes but for testing purpsoes, it can be ran outside of
+Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` and `NGINX_CONF` environment variables
+but nginx itself will not be started.  This might change in the future but for now, this support is only as a
+convenience.
+
 # Credit
 
 This project was largely based after the `nginx-alpha` example in the
