@@ -4,9 +4,11 @@
 .project
 .projectile
 .tern-project
+coverage.out
 k8s-pods-ingress
 
 .idea/
 .settings/
+.vscode/
 typings/
 vendor/
