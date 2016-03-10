@@ -22,6 +22,9 @@ const (
 	KeyTrafficHostsA = "trafficHosts"
 )
 
+/*
+MicroserviceLabelSelector is the label selector to identify microservice pods.
+*/
 var MicroserviceLabelSelector labels.Selector
 
 func filterPods(pods []api.Pod) []api.Pod {
@@ -107,7 +110,7 @@ func IsPodRoutable(pod api.Pod) bool {
 }
 
 /*
-Updates the provided cache based on the pod events and returns if the cache changes warrant an nginx restart.
+UpdatePodCacheForEvents updates the cache based on the pod events and returns if the changes warrant an nginx restart.
 */
 func UpdatePodCacheForEvents(cache map[string]api.Pod, events []watch.Event) bool {
 	needsRestart := false

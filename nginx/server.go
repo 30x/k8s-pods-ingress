@@ -16,7 +16,7 @@ func shellOut(cmd string) {
 }
 
 /*
-Starts nginx using the provided configuration or the default configuration.
+StartServer starts nginx using the provided configuration or the default configuration.
 */
 func StartServer(conf string) {
 	nginxConf := conf

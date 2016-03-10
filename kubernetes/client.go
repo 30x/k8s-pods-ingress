@@ -8,22 +8,25 @@ import (
 )
 
 const (
+	// ErrNeedsKubeHostSet is the error used when the KUBE_HOST is not set and ran outside of Kubernetes
 	ErrNeedsKubeHostSet = "When ran outside of Kubernetes, the KUBE_HOST environment variable is required"
 )
 
 /*
-Returns a Kubernetes client.
+GetClient returns a Kubernetes client.
 */
 func GetClient() (*client.Client, error) {
 	var kubeConfig client.Config
 
 	// Set the Kubernetes configuration based on the environment
 	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); err == nil {
-		if config, err := client.InClusterConfig(); err != nil {
+		config, err := client.InClusterConfig()
+
+		if err != nil {
 			return nil, fmt.Errorf("Failed to create in-cluster config: %v.", err)
-		} else {
-			kubeConfig = *config
 		}
+
+		kubeConfig = *config
 	} else {
 		kubeConfig = client.Config{
 			Host: os.Getenv("KUBE_HOST"),
