@@ -1,4 +1,5 @@
 *.iml
+*.test
 
 .classpath
 .project

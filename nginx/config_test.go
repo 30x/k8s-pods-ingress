@@ -37,11 +37,10 @@ http {
 
     location / {
       proxy_set_header Host $host;
+      # Pod testing
       proxy_pass http://10.244.1.16:80;
     }
-
   }
-
 }
 `
 
@@ -83,11 +82,10 @@ http {
 
     location /testing {
       proxy_set_header Host $host;
+      # Pod testing
       proxy_pass http://10.244.1.16:8080;
     }
-
   }
-
 }
 `
 
@@ -131,16 +129,16 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
+      # Pod testing
       proxy_pass http://10.244.1.16:80;
     }
 
     location /test {
       proxy_set_header Host $host;
+      # Pod testing
       proxy_pass http://10.244.1.16:80;
     }
-
   }
-
 }
 `
 
@@ -183,9 +181,9 @@ http {
 
     location / {
       proxy_set_header Host $host;
+      # Pod testing2
       proxy_pass http://10.244.1.17:80;
     }
-
   }
 
   server {
@@ -194,11 +192,10 @@ http {
 
     location / {
       proxy_set_header Host $host;
+      # Pod testing
       proxy_pass http://10.244.1.16:80;
     }
-
   }
-
 }
 `
 
@@ -246,10 +243,13 @@ http {
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
 
-  # Upstream for test.github.com/
+  # Upstream for / traffic on test.github.com
   upstream microservice619897598 {
+    # Pod testing
     server 10.244.1.16:80
+    # Pod testing2
     server 10.244.1.17:80
+    # Pod testing3
     server 10.244.1.18:80
   }
 
@@ -259,11 +259,10 @@ http {
 
     location / {
       proxy_set_header Host $host;
+      # Upstream microservice619897598
       proxy_pass http://microservice619897598;
     }
-
   }
-
 }
 `
 
@@ -305,6 +304,6 @@ http {
 			},
 		},
 	}) {
-		t.Fatal("Unexpected nginx.conf was generated for multiple pods, same service")
+		t.Fatalf("Unexpected nginx.conf was generated for multiple pods, same service")
 	}
 }

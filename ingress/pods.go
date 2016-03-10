@@ -48,7 +48,7 @@ func init() {
 }
 
 /*
-Returns the microservices pods list.
+GetMicroservicePodList returns the microservices pods list.
 */
 func GetMicroservicePodList(kubeClient *client.Client) (*api.PodList, error) {
 	// Query the initial list of Pods
@@ -68,7 +68,7 @@ func GetMicroservicePodList(kubeClient *client.Client) (*api.PodList, error) {
 }
 
 /*
-Returns whether or not the pod is routable.
+IsPodRoutable returns whether or not the pod is routable.
 */
 func IsPodRoutable(pod api.Pod) bool {
 	routable := true
@@ -96,7 +96,8 @@ func IsPodRoutable(pod api.Pod) bool {
 			_, err := strconv.Atoi(annotation)
 
 			if err != nil {
-				log.Printf("  Pod (%s) is not routable: Invalid '%s' value (%s): %v.\n", pod.Name, KeyPathPortA, annotation, err)
+				log.Printf("  Pod (%s) is not routable: Invalid '%s' value (%s): %v.\n",
+					pod.Name, KeyPathPortA, annotation, err)
 				routable = false
 			}
 		}

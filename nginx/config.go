@@ -23,23 +23,23 @@ http {
   types_hash_max_size 2048;
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
-{{range $name, $upstream := .Upstreams}}
-  # Upstream for {{$name}}
-  upstream microservice{{$upstream.Hash}} {
-{{range $server := $upstream.Servers}}    server {{$server}}
+{{range $key, $upstream := .Upstreams}}
+  # Upstream for {{$upstream.Path}} traffic on {{$upstream.Host}}
+  upstream {{$upstream.Name}} {
+{{range $server := $upstream.Servers}}    # Pod {{$server.PodName}}
+    server {{$server.Target}}
 {{end}}  }
-{{end}}
-{{range $host, $server := .Servers}}  server {
+{{end}}{{range $host, $server := .Hosts}}
+  server {
     listen 80;
     server_name {{$host}};
-{{range $path, $target := $server.Locations}}
+{{range $path, $location := $server.Locations}}
     location {{$path}} {
       proxy_set_header Host $host;
-      proxy_pass http://{{$target}};
+      {{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.PodName}}{{end}}
+      proxy_pass http://{{$location.Server.Target}};
     }
-{{end}}
-  }
-
+{{end}}  }
 {{end}}}
 `
 	// DefaultNginxConf is the default nginx.conf content
@@ -56,27 +56,31 @@ daemon on;
 // Cannot declare as a constant
 var tmpl *template.Template
 
-type nginxTemplateData struct {
-	Servers   map[string]nginxServer
-	Upstreams map[string]nginxUpstream
+type hostT struct {
+	Locations map[string]*locationT
 }
 
-type nginxServer struct {
-	Locations map[string]string
+type locationT struct {
+	Path   string
+	Server *serverT
 }
 
-type nginxUpstream struct {
-	Hash    string
-	Servers []string
+type serverT struct {
+	IsUpstream bool
+	PodName    string
+	Target     string
 }
 
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
+type templateDataT struct {
+	Hosts     map[string]*hostT
+	Upstreams map[string]*upstreamT
+}
+
+type upstreamT struct {
+	Host    string
+	Name    string
+	Path    string
+	Servers []*serverT
 }
 
 func hash(s string) uint32 {
@@ -97,7 +101,7 @@ func init() {
 }
 
 /*
-Takes the host to pod cache and returns a generated nginx configuration as string.
+GetConfForPods takes the pod cache and returns a generated nginx configuration
 */
 func GetConfForPods(cache map[string]api.Pod) string {
 	// Quick out if there are no pods in the cache
@@ -105,9 +109,9 @@ func GetConfForPods(cache map[string]api.Pod) string {
 		return DefaultNginxConf
 	}
 
-	tmplData := nginxTemplateData{
-		Servers:   make(map[string]nginxServer),
-		Upstreams: make(map[string]nginxUpstream),
+	tmplData := templateDataT{
+		Hosts:     make(map[string]*hostT),
+		Upstreams: make(map[string]*upstreamT),
 	}
 
 	// Process the pods to populate the nginx configuration data structure
@@ -135,46 +139,75 @@ func GetConfForPods(cache map[string]api.Pod) string {
 		}
 
 		// Process each host
-		for _, host := range hosts {
-			server, ok := tmplData.Servers[host]
+		for _, hostName := range hosts {
+			host, ok := tmplData.Hosts[hostName]
 
 			if !ok {
-				tmplData.Servers[host] = nginxServer{
-					Locations: make(map[string]string),
+				tmplData.Hosts[hostName] = &hostT{
+					Locations: make(map[string]*locationT),
 				}
-				server = tmplData.Servers[host]
+				host = tmplData.Hosts[hostName]
 			}
 
 			// Process each path
 			for _, path := range paths {
-				eTarget, ok := server.Locations[path]
-				nTarget := pod.Status.PodIP + ":" + annotation
-				upstreamKey := host + path
+				location, ok := host.Locations[path]
+				target := pod.Status.PodIP + ":" + annotation
+				upstreamKey := hostName + path
 				upstreamHash := fmt.Sprint(hash(upstreamKey))
+				upstreamName := "microservice" + upstreamHash
 
 				if ok {
 					// If the current target is different than the new one, create/update the upstream accordingly
-					if eTarget != nTarget {
+					if location.Server.Target != target {
 						if upstream, ok := tmplData.Upstreams[upstreamKey]; ok {
-							// Add the new target to the upstream servers
-							if !contains(upstream.Servers, nTarget) {
-								upstream.Servers = append(upstream.Servers, nTarget)
+							ok = true
 
-								tmplData.Upstreams[upstreamKey] = upstream
+							// Check to see if there is a server with the corresponding target
+							for _, server := range upstream.Servers {
+								if server.Target == target {
+									ok = false
+									break
+								}
+							}
+
+							// If there is no server for this target, create one
+							if ok {
+								upstream.Servers = append(upstream.Servers, &serverT{
+									PodName: pod.Name,
+									Target:  target,
+								})
 							}
 						} else {
 							// Create the new upstream
-							tmplData.Upstreams[upstreamKey] = nginxUpstream{
-								Hash:    upstreamHash,
-								Servers: []string{eTarget, nTarget},
+							tmplData.Upstreams[upstreamKey] = &upstreamT{
+								Name: upstreamName,
+								Host: hostName,
+								Path: path,
+								Servers: []*serverT{
+									location.Server,
+									&serverT{
+										PodName: pod.Name,
+										Target:  target,
+									},
+								},
 							}
 						}
 
-						// Update the location to point to the upstream
-						server.Locations[path] = "microservice" + upstreamHash
+						// Update the location server
+						location.Server = &serverT{
+							IsUpstream: true,
+							Target:     upstreamName,
+						}
 					}
 				} else {
-					server.Locations[path] = nTarget
+					host.Locations[path] = &locationT{
+						Path: path,
+						Server: &serverT{
+							PodName: pod.Name,
+							Target:  target,
+						},
+					}
 				}
 			}
 		}
