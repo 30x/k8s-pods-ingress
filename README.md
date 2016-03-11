@@ -63,32 +63,14 @@ This project was largely based after the `nginx-alpha` example in the
 
 # Example
 
-Below is an example replication that when deployed would be picked up by this ingress controller:
+There is an example in the `demo` directory.  Basically, this demo is a Node.js application that will return the
+container environment variables and IP address(es).  Here is how you can build the demo and deploy it:
 
-``` yaml
-# kubectl run my-nginx --image=nginx --replicas=1 --port=80 --labels="microservice=true"
-apiVersion: v1
-kind: ReplicationController
-metadata:
-  name: my-nginx
-  labels:
-    app: my-nginx
-    microservice: "true"
-spec:
-  replicas: 1
-  selector:
-    app: my-nginx
-  template:
-    metadata:
-      annotations:
-        trafficHosts: "testing.local test.local"
-      labels:
-        app: my-nginx
-        microservice: "true"
-    spec:
-      containers:
-      - image: nginx
-        name: my-nginx
-        ports:
-        - containerPort: 80
-```
+* `cd demo`
+* `docker build -t nodejs-k8s-env .`
+* `docker tag -f nodejs-k8s-env 192.168.64.1:5000/nodejs-k8s-env`
+* `docker push 192.168.64.1:5000/nodejs-k8s-env`
+* `kubectl create -f rc.yaml`
+
+Of course, change your `docker` commands based on your environment.  Once you have the `k8s-pods-ingress` running, you
+can attach to it and watch it as you deploy microservices, scale them, etc.

@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nodejs-k8s-env
+  labels:
+    name: nodejs-k8s-env
+spec:
+  replicas: 1
+  selector:
+    name: nodejs-k8s-env
+  template:
+    metadata:
+      labels:
+        name: nodejs-k8s-env
+        microservice: "true"
+      annotations:
+        trafficHosts: "test.k8s.local"
+        publicPaths: "/nodejs"
+        pathPort: "3000"
+    spec:
+      containers:
+      - name: nodejs-k8s-env
+        image: 192.168.64.1:5000/nodejs-k8s-env
+        env:
+          - name: PORT
+            value: "3000"
+        ports:
+          - containerPort: 3000

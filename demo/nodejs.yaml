@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nodejs
+  labels:
+    app: nodejs
+spec:
+  replicas: 1
+  selector:
+    app: nodejs
+  template:
+    metadata:
+      annotations:
+        trafficHosts: "test.k8s.local"
+      labels:
+        app: nodejs
+        microservice: "true"
+    spec:
+      containers:
+      - image: nodejs
+        imagePullPolicy: Always
+        name: nodejs
+        env:
+          PORT: 3000
+        ports:
+        - containerPort: 3000

@@ -27,7 +27,7 @@ http {
   # Upstream for {{$upstream.Path}} traffic on {{$upstream.Host}}
   upstream {{$upstream.Name}} {
 {{range $server := $upstream.Servers}}    # Pod {{$server.PodName}}
-    server {{$server.Target}}
+    server {{$server.Target}};
 {{end}}  }
 {{end}}{{range $host, $server := .Hosts}}
   server {
@@ -116,7 +116,7 @@ func GetConfForPods(cache map[string]api.Pod) string {
 
 	// Process the pods to populate the nginx configuration data structure
 	for _, pod := range cache {
-		// We do not need to validate the pod's publicPort, trafficHosts or state since that's already handled for us
+		// We do not need to validate the pod's pathPort, trafficHosts or state since that's already handled for us
 		annotation, _ := pod.ObjectMeta.Annotations[ingress.KeyTrafficHostsA]
 
 		hosts := strings.Split(annotation, " ")
@@ -152,10 +152,14 @@ func GetConfForPods(cache map[string]api.Pod) string {
 			// Process each path
 			for _, path := range paths {
 				location, ok := host.Locations[path]
-				target := pod.Status.PodIP + ":" + annotation
 				upstreamKey := hostName + path
 				upstreamHash := fmt.Sprint(hash(upstreamKey))
 				upstreamName := "microservice" + upstreamHash
+				target := pod.Status.PodIP
+
+				if annotation != "80" && annotation != "443" {
+					target += ":" + annotation
+				}
 
 				if ok {
 					// If the current target is different than the new one, create/update the upstream accordingly

@@ -38,7 +38,7 @@ http {
     location / {
       proxy_set_header Host $host;
       # Pod testing
-      proxy_pass http://10.244.1.16:80;
+      proxy_pass http://10.244.1.16;
     }
   }
 }
@@ -130,13 +130,13 @@ http {
     location /prod {
       proxy_set_header Host $host;
       # Pod testing
-      proxy_pass http://10.244.1.16:80;
+      proxy_pass http://10.244.1.16;
     }
 
     location /test {
       proxy_set_header Host $host;
       # Pod testing
-      proxy_pass http://10.244.1.16:80;
+      proxy_pass http://10.244.1.16;
     }
   }
 }
@@ -182,7 +182,7 @@ http {
     location / {
       proxy_set_header Host $host;
       # Pod testing2
-      proxy_pass http://10.244.1.17:80;
+      proxy_pass http://10.244.1.17;
     }
   }
 
@@ -193,7 +193,7 @@ http {
     location / {
       proxy_set_header Host $host;
       # Pod testing
-      proxy_pass http://10.244.1.16:80;
+      proxy_pass http://10.244.1.16;
     }
   }
 }
@@ -246,11 +246,11 @@ http {
   # Upstream for / traffic on test.github.com
   upstream microservice619897598 {
     # Pod testing
-    server 10.244.1.16:80
+    server 10.244.1.16;
     # Pod testing2
-    server 10.244.1.17:80
+    server 10.244.1.17;
     # Pod testing3
-    server 10.244.1.18:80
+    server 10.244.1.18:3000;
   }
 
   server {
@@ -295,6 +295,7 @@ http {
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
 					"trafficHosts": "test.github.com",
+					"pathPort":     "3000",
 				},
 				Name: "testing3",
 			},

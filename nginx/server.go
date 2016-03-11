@@ -32,7 +32,7 @@ func StartServer(conf string) {
 		// Create the nginx.conf file based on the template
 		if w, err := os.Create(NginxConfPath); err != nil {
 			log.Fatalf("Failed to open %s: %v", NginxConfPath, err)
-		} else if _, err := io.WriteString(w, conf); err != nil {
+		} else if _, err := io.WriteString(w, nginxConf); err != nil {
 			log.Fatalf("Failed to write template %v", err)
 		}
 

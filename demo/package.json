@@ -1,0 +1,9 @@
+{
+  "name": "nodejs-k8s-env",
+  "version": "0.0.0",
+  "description": "Simple application for getting the Kubernetes environment information.",
+  "main": "index.js",
+  "author": "Jeremy Whitlock <jwhitlock@apache.org>",
+  "license": "Apache-2",
+  "private": true
+}
