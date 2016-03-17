@@ -41,7 +41,7 @@ http {
       proxy_pass http://10.244.1.16;
     }
   }
-}
+` + DefaultNginxServerConf + `}
 `
 
 	if expectedConf != GetConfForPods(map[string]api.Pod{
@@ -86,7 +86,7 @@ http {
       proxy_pass http://10.244.1.16:8080;
     }
   }
-}
+` + DefaultNginxServerConf + `}
 `
 
 	if expectedConf != GetConfForPods(map[string]api.Pod{
@@ -139,7 +139,7 @@ http {
       proxy_pass http://10.244.1.16;
     }
   }
-}
+` + DefaultNginxServerConf + `}
 `
 
 	if expectedConf != GetConfForPods(map[string]api.Pod{
@@ -196,7 +196,7 @@ http {
       proxy_pass http://10.244.1.16;
     }
   }
-}
+` + DefaultNginxServerConf + `}
 `
 
 	if expectedConf != GetConfForPods(map[string]api.Pod{
@@ -263,7 +263,7 @@ http {
       proxy_pass http://microservice619897598;
     }
   }
-}
+` + DefaultNginxServerConf + `}
 `
 
 	if expectedConf != GetConfForPods(map[string]api.Pod{
@@ -305,6 +305,6 @@ http {
 			},
 		},
 	}) {
-		t.Fatalf("Unexpected nginx.conf was generated for multiple pods, same service")
+		t.Fatal("Unexpected nginx.conf was generated for multiple pods, same service")
 	}
 }

@@ -40,14 +40,22 @@ http {
       proxy_pass http://{{$location.Server.Target}};
     }
 {{end}}  }
-{{end}}}
+{{end}}` + DefaultNginxServerConf + `}
 `
 	// DefaultNginxConf is the default nginx.conf content
 	DefaultNginxConf = `
 # A very simple nginx configuration file that forces nginx to start as a daemon.
 events {}
-http {}
+http {` + DefaultNginxServerConf + `}
 daemon on;
+`
+	// DefaultNginxServerConf is the default nginx server configuration
+	DefaultNginxServerConf = `
+  # Default server that will just close the connection as if there was no server available
+  server {
+    listen 80 default_server;
+    return 444;
+  }
 `
 	// NginxConfPath is The nginx configuration file path
 	NginxConfPath = "/etc/nginx/nginx.conf"
