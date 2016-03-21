@@ -6,8 +6,9 @@ differently for this ingress than your typical
 
 * This version does pod-level routing instead of service-level routing
 * This version does not use the
-[Kubernetes Ingress Resource](http://kubernetes.io/v1.1/docs/user-guide/ingress.html#the-ingress-resource) and instead
-uses pod-level annotations to wire things up *(This design was not my doing and was dictated by an internal design)*
+[Kubernetes Ingress Resource](http://kubernetes.io/v1.1/docs/user-guide/ingress.html#the-ingress-resource) definitions
+and instead uses pod-level annotations to wire things up *(This design was not my doing and was dictated by an internal
+design)*
 
 The current state of this project is that this is a proof of concept driven by an internal design.  That design and
 this implementation could change at any time.
@@ -28,14 +29,12 @@ Once we've found all pods that are properly configured as microservices, we gene
 
 This initial list of pods is then cached and from this point forward we listen for pod events and alter our internal
 cache accordingly based on the pod event.  *(The idea here was to allow for an initial hit to pull all pods but to then
-use the events for as quick a turnaround as possible.)*  There is a rate limiter in place that only processes events
-every 10 seconds.
+to use the events for as quick a turnaround as possible.)*  Events are processed in 2s chunks.
 
 # Building and Running
 
 If you're testing this outside of Kubernetes, you can just use `go build` followed by
-`KUBE_HOST=... NGINX_CONF=... ./k8s-pods-ingress`.  If you're building this to run on Kubernetes, you'll need to do the
-following:
+`KUBE_HOST=... ./k8s-pods-ingress`.  If you're building this to run on Kubernetes, you'll need to do the following:
 
 * `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
 * `docker build ...`
@@ -52,8 +51,9 @@ example `rc.yaml` for deploying the k8s-pods-ingress to Kubernetes.  Here is how
 * `kubectl create -f rc.yaml`
 
 **Note:** This ingress is written to be ran within Kubernetes but for testing purpsoes, it can be ran outside of
-Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` and `NGINX_CONF` environment variables
-but nginx itself will not be started.  This might change in the future but for now, this support is only as a
+Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to
+Kubernetes.  When ran outside the container, nginx itself will not be started and its configuration file will not be
+written to disk, only printed to stdout.  This might change in the future but for now, this support is only as a
 convenience.
 
 # Credit
