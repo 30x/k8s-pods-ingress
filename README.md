@@ -29,7 +29,198 @@ Once we've found all pods that are properly configured as microservices, we gene
 
 This initial list of pods is then cached and from this point forward we listen for pod events and alter our internal
 cache accordingly based on the pod event.  *(The idea here was to allow for an initial hit to pull all pods but to then
-to use the events for as quick a turnaround as possible.)*  Events are processed in 2s chunks.
+to use the events for as quick a turnaround as possible.)*  Events are processed in 2 second chunks.
+
+# Example
+
+Let's assume you've already deployed the ingress controller.  *(If you haven't, feel free to look at the
+[Building and Running](#building-and-running) section of the documentation.)*  When the ingress starts up, nginx is
+configured and started on your behalf.  The generated `/etc/nginx/nginx.conf` that the ingress starts with looks like
+this *(assuming you do not have any deployed microservices)*:
+
+``` nginx
+# A very simple nginx configuration file that forces nginx to start as a daemon.
+events {}
+http {
+  # Default server that will just close the connection as if there was no server available
+  server {
+    listen 80 default_server;
+    return 444;
+  }
+}
+daemon on;
+```
+
+This configuration will tell nginx to listen on port `80` and all requests for unknown hosts will be closed, as if there
+was no server listening for traffic.  *(This approach is better than reporting a `404` because a `404` says someone is
+there but the request was for a missing resource while closing the connection says that the request was for a server
+that didn't exist, or in our case a request was made to a host that our ingress is unaware of.)*
+
+Now that we know how the ingress spins up nginx initially, let's deploy a _microservice_ to Kubernetes.  To do that, we
+will be packaging up a simple Node.js application that prints out the environment details of its running container,
+including the IP address(es) of its host.  To do this, we will build a Docker image, publish the Docker image and then
+create a Kubernetes ReplicationController that will deploy one pod representing our microservice.
+
+**Note:** All commands you see in this demo assume you are already within the `demo` directory.
+These commands are written assuming you are running docker at `192.168.64.1:5000` so please adjust your Docker commands
+accordingly.
+
+First things first, let's build our Docker image using `docker build -t nodejs-k8s-env .`, tag the Docker image using
+`docker tag -f nodejs-k8s-env 192.168.64.1:5000/nodejs-k8s-env` and finally push the Docker image to your Docker
+registry using `docker push 192.168.64.1:5000/nodejs-k8s-env`.  At this point, we have built and published a Docker
+image for our microservice.
+
+The next step is to deploy our microservice to Kubernetes but before we do this, let's look at the ReplicationController
+configuration file to see what is going on.  Here is the `rc.yaml` we'll be using to deploy our microservice
+*(Same as `demo/rc.yaml`)*:
+
+``` yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nodejs-k8s-env
+  labels:
+    name: nodejs-k8s-env
+spec:
+  replicas: 1
+  selector:
+    name: nodejs-k8s-env
+  template:
+    metadata:
+      labels:
+        name: nodejs-k8s-env
+        # This marks the pod as a microservice
+        microservice: "true"
+      annotations:
+        # This says that only traffic for the "test.k8s.local" host will be routed to this pod
+        trafficHosts: "test.k8s.local"
+        # This says that only traffic for the "/nodejs" path and its sub paths will be routed to this pod
+        publicPaths: "/nodejs"
+        # This says that the microservice is listening on port 3000 on this pod
+        pathPort: "3000"
+    spec:
+      containers:
+      - name: nodejs-k8s-env
+        image: 192.168.64.1:5000/nodejs-k8s-env
+        env:
+          - name: PORT
+            value: "3000"
+        ports:
+          - containerPort: 3000
+```
+
+When we deploy our microservice usin `kubectl create -f rc.yaml`, the ingress will notice that we now have one pod
+running that is marked as a microservice.  If you were tailing the logs, or you were to review the content of
+`/etc/nginx/nginx.conf` in the container, you should see that it now reflects that we have a new microservice
+deployed:
+
+``` nginx
+events {
+  worker_connections 1024;
+}
+http {
+  # http://nginx.org/en/docs/http/ngx_http_core_module.html
+  types_hash_max_size 2048;
+  server_names_hash_max_size 512;
+  server_names_hash_bucket_size 64;
+
+  server {
+    listen 80;
+    server_name test.k8s.local;
+
+    location /nodejs {
+      proxy_set_header Host $host;
+      # Pod nodejs-k8s-env-eq7mh
+      proxy_pass http://10.244.69.6:3000;
+    }
+  }
+
+  # Default server that will just close the connection as if there was no server available
+  server {
+    listen 80 default_server;
+    return 444;
+  }
+}
+```
+
+This means that if someone requests `http://test.k8s.local/nodejs`, assuming you've got `test.k8s.local` pointed to the
+edge of your Kubernetes cluster, it should get routed to the proper pod *(`nodejs-k8s-env-eq7mh` in our example)*.  If
+everything worked out properly, you should see output like this:
+
+``` json
+{
+  "env": {
+    "PATH": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "HOSTNAME": "nodejs-k8s-env-eq7mh",
+    "PORT": "3000",
+    "KUBERNETES_PORT": "tcp://10.100.0.1:443",
+    "KUBERNETES_PORT_443_TCP": "tcp://10.100.0.1:443",
+    "KUBERNETES_PORT_443_TCP_PROTO": "tcp",
+    "KUBERNETES_PORT_443_TCP_PORT": "443",
+    "KUBERNETES_PORT_443_TCP_ADDR": "10.100.0.1",
+    "KUBERNETES_SERVICE_HOST": "10.100.0.1",
+    "KUBERNETES_SERVICE_PORT": "443",
+    "VERSION": "v5.8.0",
+    "NPM_VERSION": "3",
+    "HOME": "/root"
+  },
+  "ips": {
+    "lo": "127.0.0.1",
+    "eth0": "10.244.69.6"
+  }
+}
+```
+
+Now that's cool and all but what happens when we scale our application?  Let's scale our microservice to `3` instances
+using `kubectl scale --replicas=3 replicationcontrollers nodejs-k8s-env`.  Your `/etc/nginx/nginx.conf` should look
+something like this:
+
+``` nginx
+events {
+  worker_connections 1024;
+}
+http {
+  # http://nginx.org/en/docs/http/ngx_http_core_module.html
+  types_hash_max_size 2048;
+  server_names_hash_max_size 512;
+  server_names_hash_bucket_size 64;
+
+  # Upstream for /nodejs traffic on test.k8s.local
+  upstream microservice1866206336 {
+    # Pod nodejs-k8s-env-eq7mh
+    server 10.244.69.6:3000;
+    # Pod nodejs-k8s-env-yr1my
+    server 10.244.69.8:3000;
+    # Pod nodejs-k8s-env-oq9xn
+    server 10.244.69.9:3000;
+  }
+
+  server {
+    listen 80;
+    server_name test.k8s.local;
+
+    location /nodejs {
+      proxy_set_header Host $host;
+      # Upstream microservice1866206336
+      proxy_pass http://microservice1866206336;
+    }
+  }
+
+  # Default server that will just close the connection as if there was no server available
+  server {
+    listen 80 default_server;
+    return 444;
+  }
+}
+```
+
+The big change between the one pod microservice and the N pod microservice is that now the nginx configuration uses
+the nginx [upstream](http://nginx.org/en/docs/http/ngx_http_upstream_module.html) to do load balancing across the N
+differen pods.  And due to the default load balancer in nginx being round-robin based, requests for
+`http://test.k8s.local/nodejs` should return a different payload for each request showing that you are indeed
+hitting each individual pod.
+
+I hope this example gave you a better idea of how this all works.  If not, let us know how to make it better.
 
 # Building and Running
 
@@ -50,27 +241,13 @@ example `rc.yaml` for deploying the k8s-pods-ingress to Kubernetes.  Here is how
 * `docker push 192.168.64.1:5000/k8s-pods-ingress`
 * `kubectl create -f rc.yaml`
 
-**Note:** This ingress is written to be ran within Kubernetes but for testing purpsoes, it can be ran outside of
-Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to
-Kubernetes.  When ran outside the container, nginx itself will not be started and its configuration file will not be
-written to disk, only printed to stdout.  This might change in the future but for now, this support is only as a
-convenience.
+**Note:** This ingress is written to be ran within Kubernetes but for testing purposes, it can be ran outside of
+Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to the
+Kubernetes API.  *(Example: `http://192.168.64.2:8080`)*  When ran outside the container, nginx itself will not be
+started and its configuration file will not be written to disk, only printed to stdout.  This might change in the future
+but for now, this support is only as a convenience.
 
 # Credit
 
 This project was largely based after the `nginx-alpha` example in the
 [kubernetes/contrib](https://github.com/kubernetes/contrib/tree/master/ingress/controllers/nginx-alpha) repository.
-
-# Example
-
-There is an example in the `demo` directory.  Basically, this demo is a Node.js application that will return the
-container environment variables and IP address(es).  Here is how you can build the demo and deploy it:
-
-* `cd demo`
-* `docker build -t nodejs-k8s-env .`
-* `docker tag -f nodejs-k8s-env 192.168.64.1:5000/nodejs-k8s-env`
-* `docker push 192.168.64.1:5000/nodejs-k8s-env`
-* `kubectl create -f rc.yaml`
-
-Of course, change your `docker` commands based on your environment.  Once you have the `k8s-pods-ingress` running, you
-can attach to it and watch it as you deploy microservices, scale them, etc.
