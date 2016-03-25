@@ -1,5 +1,5 @@
 hash: d3238b9f9a2f38bee2749678273418798d8453d3862704e4cbbd1d9542baebc7
-updated: 2016-02-26T15:55:16.437446399-07:00
+updated: 2016-03-24T17:47:11.895379984-06:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: '***'
@@ -39,7 +39,7 @@ imports:
   subpackages:
   - proto
 - name: github.com/google/cadvisor
-  version: 49a08d5139ae0111757a110ea3b55fe9a607873d
+  version: 546a3771589bdb356777c646c6eca24914fdd48b
   subpackages:
   - api
   - cache/memory
@@ -110,11 +110,12 @@ imports:
 - name: gopkg.in/yaml.v2
   version: d466437aa4adc35830964cffc5b5f262c63ddcb4
 - name: k8s.io/kubernetes
-  version: fb1ee74e78439d4c4dd29eae42bccef4cc65c481
+  version: 47ee746fcc71fb86c64c9bc6221e475e98ee0139
   subpackages:
   - pkg/api
   - pkg/client/unversioned
   - pkg/fields
+  - pkg/watch
   - pkg/labels
   - pkg/api/meta
   - pkg/api/resource
@@ -130,8 +131,6 @@ imports:
   - pkg/util/sets
   - pkg/api/errors
   - pkg/api/install
-  - pkg/api/v1
-  - pkg/api/validation
   - pkg/apimachinery/registered
   - pkg/apis/authorization/install
   - pkg/apis/autoscaling
@@ -142,13 +141,12 @@ imports:
   - pkg/apis/extensions
   - pkg/apis/extensions/install
   - pkg/apis/metrics/install
-  - pkg/client/metrics
-  - pkg/client/transport
+  - pkg/client/restclient
+  - pkg/client/typed/discovery
   - pkg/util/net
   - pkg/util/wait
   - pkg/version
-  - pkg/watch
-  - pkg/watch/json
+  - pkg/util/runtime
   - pkg/util/validation
   - pkg/util/errors
   - third_party/forked/reflect
@@ -158,11 +156,8 @@ imports:
   - pkg/runtime/serializer/versioning
   - pkg/util/integer
   - pkg/util/validation/field
+  - pkg/api/v1
   - pkg/apimachinery
-  - pkg/util/parsers
-  - pkg/api/util
-  - pkg/capabilities
-  - pkg/util/yaml
   - pkg/apis/authorization
   - pkg/apis/authorization/v1beta1
   - pkg/apis/autoscaling/v1
@@ -172,9 +167,22 @@ imports:
   - pkg/apis/extensions/v1beta1
   - pkg/apis/metrics
   - pkg/apis/metrics/v1alpha1
-  - pkg/util/runtime
+  - pkg/api/validation
+  - pkg/client/metrics
+  - pkg/client/transport
+  - pkg/util/crypto
+  - pkg/watch/json
+  - pkg/util/yaml
+  - pkg/util/parsers
   - pkg/kubelet/qos
   - pkg/master/ports
+  - pkg/api/endpoints
+  - pkg/api/pod
+  - pkg/api/service
+  - pkg/api/util
+  - pkg/capabilities
+  - pkg/util/hash
+  - pkg/util/net/sets
 - name: speter.net/go/exp/math/dec/inf
   version: 42ca6cd68aa922bc3f32f1e056e61b65945d9ad7
 devImports: []

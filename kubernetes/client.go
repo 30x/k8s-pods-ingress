@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"k8s.io/kubernetes/pkg/client/restclient"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
@@ -16,11 +17,11 @@ const (
 GetClient returns a Kubernetes client.
 */
 func GetClient() (*client.Client, error) {
-	var kubeConfig client.Config
+	var kubeConfig restclient.Config
 
 	// Set the Kubernetes configuration based on the environment
 	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); err == nil {
-		config, err := client.InClusterConfig()
+		config, err := restclient.InClusterConfig()
 
 		if err != nil {
 			return nil, fmt.Errorf("Failed to create in-cluster config: %v.", err)
@@ -28,7 +29,7 @@ func GetClient() (*client.Client, error) {
 
 		kubeConfig = *config
 	} else {
-		kubeConfig = client.Config{
+		kubeConfig = restclient.Config{
 			Host: os.Getenv("KUBE_HOST"),
 		}
 
