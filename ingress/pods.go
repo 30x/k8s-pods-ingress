@@ -55,7 +55,7 @@ GetMicroservicePodList returns the microservices pods list.
 */
 func GetMicroservicePodList(kubeClient *client.Client) (*api.PodList, error) {
 	// Query the initial list of Pods
-	podList, err := kubeClient.Pods(api.NamespaceDefault).List(api.ListOptions{
+	podList, err := kubeClient.Pods(api.NamespaceAll).List(api.ListOptions{
 		FieldSelector: fields.Everything(),
 		LabelSelector: MicroserviceLabelSelector,
 	})

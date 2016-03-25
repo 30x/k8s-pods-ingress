@@ -14,7 +14,7 @@ spec:
         app: k8s-pods-ingress
     spec:
       containers:
-      - image: 192.168.64.1:5000/k8s-pods-ingress
+      - image: whitlockjc/k8s-pods-ingress:v0
         imagePullPolicy: Always
         name: k8s-pods-ingress
         ports:
