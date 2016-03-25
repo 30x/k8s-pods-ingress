@@ -12,7 +12,12 @@ const server = http.createServer((req, res) => {
   })
   res.end(JSON.stringify({
     env: process.env,
-    ips: ifcs
+    ips: ifcs,
+    req: {
+      headers: req.headers,
+      method: req.method,
+      url: req.url
+    }
   }, null, 2))
 })
 
