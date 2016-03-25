@@ -5,5 +5,8 @@
   "main": "index.js",
   "author": "Jeremy Whitlock <jwhitlock@apache.org>",
   "license": "Apache-2",
-  "private": true
+  "private": true,
+  "scripts": {
+    "start": "node ."
+  }
 }
