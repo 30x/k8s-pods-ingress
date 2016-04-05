@@ -77,6 +77,25 @@ func TestIsPodRoutableNoTrafficHosts(t *testing.T) {
 }
 
 /*
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#IsPodRoutable where pod has an invalid trafficHosts annotation
+*/
+func TestIsPodRoutableInvalidTrafficHosts(t *testing.T) {
+	if IsPodRoutable(api.Pod{
+		ObjectMeta: api.ObjectMeta{
+			Annotations: map[string]string{
+				"trafficHosts": "test.github.com test.",
+				"pathPort":     "invalid",
+			},
+		},
+		Status: api.PodStatus{
+			Phase: api.PodRunning,
+		},
+	}) {
+		t.Fatal("Pod has an invalid trafficHosts annotation so it is not routable")
+	}
+}
+
+/*
 Test for github.com/30x/k8s-pods-ingress/ingress/pods#IsPodRoutable where pod is not running
 */
 func TestIsPodRoutableNotRunning(t *testing.T) {

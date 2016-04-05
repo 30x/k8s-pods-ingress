@@ -9,6 +9,8 @@ import (
 	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/watch"
+	"regexp"
+	"strings"
 )
 
 const (
@@ -20,6 +22,8 @@ const (
 	KeyPublicPathsA = "publicPaths"
 	// KeyTrafficHostsA is the annotation used to identify the list of traffic hosts associated with the microservice
 	KeyTrafficHostsA = "trafficHosts"
+	hostnameRegex    = "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
+	ipRegex          = "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
 )
 
 /*
@@ -48,6 +52,18 @@ func init() {
 	}
 
 	MicroserviceLabelSelector = selector
+}
+
+func matches(regex, value string) bool {
+	match, err := regexp.MatchString(regex, value)
+
+	if err != nil {
+		log.Printf("Error matching regex (%s): %v\n", regex, err)
+
+		match = false
+	}
+
+	return match
 }
 
 /*
@@ -83,12 +99,27 @@ func IsPodRoutable(pod api.Pod) bool {
 	}
 
 	if routable {
-		_, ok := pod.ObjectMeta.Annotations[KeyTrafficHostsA]
+		annotation, ok := pod.ObjectMeta.Annotations[KeyTrafficHostsA]
 
 		// This pod does not have the trafficHosts annotation set
 		if !ok {
 			log.Printf("  Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, KeyTrafficHostsA)
 			routable = false
+		}
+
+		for _, host := range strings.Split(annotation, " ") {
+			valid := matches(hostnameRegex, host)
+
+			if !valid {
+				valid = matches(ipRegex, host)
+
+				if !valid {
+					log.Printf("  Pod (%s) is not routable: trafficHosts annotation (%s) is not a valid hostname/ip\n", pod.Name, host)
+					routable = false
+
+					break
+				}
+			}
 		}
 	}
 
