@@ -3,109 +3,34 @@ package nginx
 import (
 	"testing"
 
+	"github.com/30x/k8s-pods-ingress/ingress"
+
 	"k8s.io/kubernetes/pkg/api"
 )
+
+func validateConf(t *testing.T, desc, expected string, pods []*api.Pod) {
+	cache := make(map[string]*ingress.PodWithRoutes)
+
+	for _, pod := range pods {
+		cache[pod.Name] = &ingress.PodWithRoutes{
+			Pod:    pod,
+			Routes: ingress.GetRoutes(pod),
+		}
+	}
+
+	if expected != GetConfForPods(cache) {
+		t.Fatal("Unexpected nginx.conf was generated (" + desc + ")")
+	}
+}
 
 /*
 Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConfForPods with an empty cache
 */
 func TestGetConfForPodsNoMicroservices(t *testing.T) {
-	conf := GetConfForPods(map[string]api.Pod{})
+	conf := GetConfForPods(map[string]*ingress.PodWithRoutes{})
 
 	if conf != DefaultNginxConf {
 		t.Fatal("The default nginx.conf should be returned for an empty cache")
-	}
-}
-
-/*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConfForPods with single pod and default path/port
-*/
-func TestGetConfForPodsDefaultPathAndPort(t *testing.T) {
-	expectedConf := `
-events {
-  worker_connections 1024;
-}
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
-  server {
-    listen 80;
-    server_name test.github.com;
-
-    location / {
-      proxy_set_header Host $host;
-      # Pod testing
-      proxy_pass http://10.244.1.16;
-    }
-  }
-` + DefaultNginxServerConf + `}
-`
-
-	if expectedConf != GetConfForPods(map[string]api.Pod{
-		"testing": api.Pod{
-			ObjectMeta: api.ObjectMeta{
-				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-				},
-				Name: "testing",
-			},
-			Status: api.PodStatus{
-				Phase: api.PodRunning,
-				PodIP: "10.244.1.16",
-			},
-		},
-	}) {
-		t.Fatal("Unexpected nginx.conf was generated for single pod with default path and port")
-	}
-}
-
-/*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConfForPods with single pod and provided path/port
-*/
-func TestGetConfForPodsProvidedPathAndPort(t *testing.T) {
-	expectedConf := `
-events {
-  worker_connections 1024;
-}
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
-  server {
-    listen 80;
-    server_name test.github.com;
-
-    location /testing {
-      proxy_set_header Host $host;
-      # Pod testing
-      proxy_pass http://10.244.1.16:8080;
-    }
-  }
-` + DefaultNginxServerConf + `}
-`
-
-	if expectedConf != GetConfForPods(map[string]api.Pod{
-		"testing": api.Pod{
-			ObjectMeta: api.ObjectMeta{
-				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-					"publicPaths":  "/testing",
-					"pathPort":     "8080",
-				},
-				Name: "testing",
-			},
-			Status: api.PodStatus{
-				Phase: api.PodRunning,
-				PodIP: "10.244.1.16",
-			},
-		},
-	}) {
-		t.Fatal("Unexpected nginx.conf was generated for single pod with provided path and port")
 	}
 }
 
@@ -136,29 +61,27 @@ http {
     location /test {
       proxy_set_header Host $host;
       # Pod testing
-      proxy_pass http://10.244.1.16;
+      proxy_pass http://10.244.1.16:3000;
     }
   }
 ` + DefaultNginxServerConf + `}
 `
 
-	if expectedConf != GetConfForPods(map[string]api.Pod{
-		"testing": api.Pod{
-			ObjectMeta: api.ObjectMeta{
-				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-					"publicPaths":  "/prod /test",
-				},
-				Name: "testing",
+	pod := api.Pod{
+		ObjectMeta: api.ObjectMeta{
+			Annotations: map[string]string{
+				"trafficHosts": "test.github.com",
+				"publicPaths":  "80:/prod 3000:/test",
 			},
-			Status: api.PodStatus{
-				Phase: api.PodRunning,
-				PodIP: "10.244.1.16",
-			},
+			Name: "testing",
 		},
-	}) {
-		t.Fatal("Unexpected nginx.conf was generated for single pod with default path and port")
+		Status: api.PodStatus{
+			Phase: api.PodRunning,
+			PodIP: "10.244.1.16",
+		},
 	}
+
+	validateConf(t, "single pod multiple paths", expectedConf, []*api.Pod{&pod})
 }
 
 /*
@@ -190,20 +113,21 @@ http {
     listen 80;
     server_name test.github.com;
 
-    location / {
+    location /nodejs {
       proxy_set_header Host $host;
       # Pod testing
-      proxy_pass http://10.244.1.16;
+      proxy_pass http://10.244.1.16:3000;
     }
   }
 ` + DefaultNginxServerConf + `}
 `
 
-	if expectedConf != GetConfForPods(map[string]api.Pod{
-		"testing": api.Pod{
+	pods := []*api.Pod{
+		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
 					"trafficHosts": "test.github.com",
+					"publicPaths":  "3000:/nodejs",
 				},
 				Name: "testing",
 			},
@@ -212,10 +136,11 @@ http {
 				PodIP: "10.244.1.16",
 			},
 		},
-		"testing2": api.Pod{
+		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
 					"trafficHosts": "prod.github.com",
+					"publicPaths":  "80:/",
 				},
 				Name: "testing2",
 			},
@@ -224,9 +149,9 @@ http {
 				PodIP: "10.244.1.17",
 			},
 		},
-	}) {
-		t.Fatal("Unexpected nginx.conf was generated for multiple pods, different services")
 	}
+
+	validateConf(t, "multiple pods, different services", expectedConf, pods)
 }
 
 /*
@@ -266,11 +191,12 @@ http {
 ` + DefaultNginxServerConf + `}
 `
 
-	if expectedConf != GetConfForPods(map[string]api.Pod{
-		"testing": api.Pod{
+	pods := []*api.Pod{
+		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
 					"trafficHosts": "test.github.com",
+					"publicPaths":  "80:/",
 				},
 				Name: "testing",
 			},
@@ -279,10 +205,11 @@ http {
 				PodIP: "10.244.1.16",
 			},
 		},
-		"testing2": api.Pod{
+		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
 					"trafficHosts": "test.github.com",
+					"publicPaths":  "80:/",
 				},
 				Name: "testing2",
 			},
@@ -291,11 +218,11 @@ http {
 				PodIP: "10.244.1.17",
 			},
 		},
-		"testing3": api.Pod{
+		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
 					"trafficHosts": "test.github.com",
-					"pathPort":     "3000",
+					"publicPaths":  "3000:/",
 				},
 				Name: "testing3",
 			},
@@ -304,7 +231,7 @@ http {
 				PodIP: "10.244.1.18",
 			},
 		},
-	}) {
-		t.Fatal("Unexpected nginx.conf was generated for multiple pods, same service")
 	}
+
+	validateConf(t, "multiple pods, same service", expectedConf, pods)
 }

@@ -5,12 +5,9 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
-	"strings"
 	"text/template"
 
 	"github.com/30x/k8s-pods-ingress/ingress"
-
-	"k8s.io/kubernetes/pkg/api"
 )
 
 const (
@@ -111,7 +108,7 @@ func init() {
 /*
 GetConfForPods takes the pod cache and returns a generated nginx configuration
 */
-func GetConfForPods(cache map[string]api.Pod) string {
+func GetConfForPods(cache map[string]*ingress.PodWithRoutes) string {
 	// Quick out if there are no pods in the cache
 	if len(cache) == 0 {
 		return DefaultNginxConf
@@ -123,103 +120,78 @@ func GetConfForPods(cache map[string]api.Pod) string {
 	}
 
 	// Process the pods to populate the nginx configuration data structure
-	for _, pod := range cache {
-		// We do not need to validate the pod's pathPort, trafficHosts or state since that's already handled for us
-		annotation, _ := pod.ObjectMeta.Annotations[ingress.KeyTrafficHostsA]
-
-		hosts := strings.Split(annotation, " ")
-
-		annotation, ok := pod.ObjectMeta.Annotations[ingress.KeyPublicPathsA]
-
-		var paths []string
-
-		// Use "/" as the default path when there are no paths defined
-		if !ok {
-			paths = []string{"/"}
-		} else {
-			paths = strings.Split(annotation, " ")
-		}
-
-		annotation, ok = pod.ObjectMeta.Annotations[ingress.KeyPathPortA]
-
-		if !ok {
-			annotation = "80"
-		}
-
-		// Process each host
-		for _, hostName := range hosts {
-			host, ok := tmplData.Hosts[hostName]
+	for _, cacheEntry := range cache {
+		// Process each pod route
+		for _, route := range cacheEntry.Routes {
+			host, ok := tmplData.Hosts[route.Incoming.Host]
 
 			if !ok {
-				tmplData.Hosts[hostName] = &hostT{
+				tmplData.Hosts[route.Incoming.Host] = &hostT{
 					Locations: make(map[string]*locationT),
 				}
-				host = tmplData.Hosts[hostName]
+				host = tmplData.Hosts[route.Incoming.Host]
 			}
 
-			// Process each path
-			for _, path := range paths {
-				location, ok := host.Locations[path]
-				upstreamKey := hostName + path
-				upstreamHash := fmt.Sprint(hash(upstreamKey))
-				upstreamName := "microservice" + upstreamHash
-				target := pod.Status.PodIP
+			location, ok := host.Locations[route.Incoming.Path]
+			upstreamKey := route.Incoming.Host + route.Incoming.Path
+			upstreamHash := fmt.Sprint(hash(upstreamKey))
+			upstreamName := "microservice" + upstreamHash
+			target := route.Outgoing.IP
 
-				if annotation != "80" && annotation != "443" {
-					target += ":" + annotation
-				}
+			if route.Outgoing.Port != "80" && route.Outgoing.Port != "443" {
+				target += ":" + route.Outgoing.Port
+			}
 
-				if ok {
-					// If the current target is different than the new one, create/update the upstream accordingly
-					if location.Server.Target != target {
-						if upstream, ok := tmplData.Upstreams[upstreamKey]; ok {
-							ok = true
+			if ok {
+				// If the current target is different than the new one, create/update the upstream accordingly
+				if location.Server.Target != target {
+					if upstream, ok := tmplData.Upstreams[upstreamKey]; ok {
+						ok = true
 
-							// Check to see if there is a server with the corresponding target
-							for _, server := range upstream.Servers {
-								if server.Target == target {
-									ok = false
-									break
-								}
+						// Check to see if there is a server with the corresponding target
+						for _, server := range upstream.Servers {
+							if server.Target == target {
+								ok = false
+								break
 							}
+						}
 
-							// If there is no server for this target, create one
-							if ok {
-								upstream.Servers = append(upstream.Servers, &serverT{
-									PodName: pod.Name,
+						// If there is no server for this target, create one
+						if ok {
+							upstream.Servers = append(upstream.Servers, &serverT{
+								PodName: cacheEntry.Pod.Name,
+								Target:  target,
+							})
+						}
+					} else {
+						// Create the new upstream
+						tmplData.Upstreams[upstreamKey] = &upstreamT{
+							Name: upstreamName,
+							Host: route.Incoming.Host,
+							Path: route.Incoming.Path,
+							Servers: []*serverT{
+								location.Server,
+								&serverT{
+									PodName: cacheEntry.Pod.Name,
 									Target:  target,
-								})
-							}
-						} else {
-							// Create the new upstream
-							tmplData.Upstreams[upstreamKey] = &upstreamT{
-								Name: upstreamName,
-								Host: hostName,
-								Path: path,
-								Servers: []*serverT{
-									location.Server,
-									&serverT{
-										PodName: pod.Name,
-										Target:  target,
-									},
 								},
-							}
+							},
 						}
+					}
 
-						// Update the location server
-						location.Server = &serverT{
-							IsUpstream: true,
-							Target:     upstreamName,
-						}
+					// Update the location server
+					location.Server = &serverT{
+						IsUpstream: true,
+						Target:     upstreamName,
 					}
-				} else {
-					host.Locations[path] = &locationT{
-						Path: path,
-						Server: &serverT{
-							PodName: pod.Name,
-							Target:  target,
-						},
-					}
+				}
+			} else {
+				host.Locations[route.Incoming.Path] = &locationT{
+					Path: route.Incoming.Path,
+					Server: &serverT{
+						PodName: cacheEntry.Pod.Name,
+						Target:  target,
+					},
 				}
 			}
 		}

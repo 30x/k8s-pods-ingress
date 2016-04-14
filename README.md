@@ -20,16 +20,20 @@ namespaces having the `microservice` label set to `true`.  These pods are then a
 configuration annotations:
 
 * `trafficHosts`: This is a space delimited array of hosts that the pod should serve traffic for *(required)*
-* `publicPaths`: This is the space delimited array of public paths that the pod should serve traffic for *(optional and
-defaults to `/`)*
-* `publicPort`: This is the container port that the host+path combination(s) should route to on the pod *(optional and
-defaults to `80`)*
+* `publicPaths`: This is the space delimited array of public paths that the pod should serve traffic for *(required, the
+value's format is `{PORT}:{PATH}` where `{PORT}` corresponds to the container port serving the traffic for the `{PATH)`*
 
 Once we've found all pods that are properly configured as microservices, we generate an nginx configuration file.
 
 This initial list of pods is then cached and from this point forward we listen for pod events and alter our internal
 cache accordingly based on the pod event.  *(The idea here was to allow for an initial hit to pull all pods but to then
 to use the events for as quick a turnaround as possible.)*  Events are processed in 2 second chunks.
+
+Each pod can expose one or more services using multiple entries in the `publicPaths` annotation.  All paths/services are
+exposed for each of the hosts listed in the `trafficHosts` annotation.  _(So if you have a trafficHosts of `host1 host2`
+and a `publicPaths` of `80:/ 3000:/nodejs`, you would have 4 separate nginx location blocks: `host1/ -> {PodIP}:80`,
+`host2/ -> {PodIP}:80`, `host1/nodejs -> {PodIP}:3000` and `host2/nodejs -> {PodIP}:3000`  Right now there is no way to
+associate specific paths to specific hosts but it may be something we support in the future.)_
 
 # Example
 
@@ -94,14 +98,12 @@ spec:
       annotations:
         # This says that only traffic for the "test.k8s.local" host will be routed to this pod
         trafficHosts: "test.k8s.local"
-        # This says that only traffic for the "/nodejs" path and its sub paths will be routed to this pod
-        publicPaths: "/nodejs"
-        # This says that the microservice is listening on port 3000 on this pod
-        pathPort: "3000"
+        # This says that only traffic for the "/nodejs" path and its sub paths will be routed to this pod, on port 3000
+        publicPaths: "3000:/nodejs"
     spec:
       containers:
       - name: nodejs-k8s-env
-        image: 192.168.64.1:5000/nodejs-k8s-env
+        image: whitlockjc/nodejs-k8s-env
         env:
           - name: PORT
             value: "3000"
@@ -216,7 +218,7 @@ http {
 
 The big change between the one pod microservice and the N pod microservice is that now the nginx configuration uses
 the nginx [upstream](http://nginx.org/en/docs/http/ngx_http_upstream_module.html) to do load balancing across the N
-differen pods.  And due to the default load balancer in nginx being round-robin based, requests for
+different pods.  And due to the default load balancer in nginx being round-robin based, requests for
 `http://test.k8s.local/nodejs` should return a different payload for each request showing that you are indeed
 hitting each individual pod.
 
