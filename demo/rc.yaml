@@ -15,8 +15,7 @@ spec:
         microservice: "true"
       annotations:
         trafficHosts: "test.k8s.local"
-        publicPaths: "/nodejs"
-        pathPort: "3000"
+        publicPaths: "3000:/nodejs"
     spec:
       containers:
       - name: nodejs-k8s-env

@@ -14,7 +14,7 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
-func initController(kubeClient *client.Client) (map[string]api.Pod, watch.Interface) {
+func initController(kubeClient *client.Client) (map[string]*ingress.PodWithRoutes, watch.Interface) {
 	log.Println("Searching for microservices pods")
 
 	// Query the initial list of Pods
@@ -27,10 +27,13 @@ func initController(kubeClient *client.Client) (map[string]api.Pod, watch.Interf
 	log.Printf("  Pods found: %d", len(pods.Items))
 
 	// Create a cache which is a key/value pair where the key is the Pod name and the value is the Pod
-	cache := make(map[string]api.Pod)
+	cache := make(map[string]*ingress.PodWithRoutes)
 
 	for _, pod := range pods.Items {
-		cache[pod.Name] = pod
+		cache[pod.Name] = &ingress.PodWithRoutes{
+			Pod:    &pod,
+			Routes: ingress.GetRoutes(&pod),
+		}
 	}
 
 	// Generate the nginx configuration and restart nginx
@@ -62,8 +65,7 @@ the nginx configuration based on pertinent Pod events.  To be considered for thi
 convention:
 
   * trafficHosts: This is a space delimited list of public hosts that route to the pod(s)
-  * publicPaths: This is the space delimited list of public paths that route to the pod(s)
-  * pathPort: This is the pod port that the
+  * publicPaths: This is the space delimited list of `{CONTAINER_PORT}:{PATH}` combinations that define the path routing
 
 This application is written to run inside the Kubernetes cluster but for outside of Kubernetes you can set the
 `KUBE_HOST` environment variable to run in a mock mode.
@@ -83,8 +85,6 @@ func main() {
 
 	// Create the initial cache and watcher
 	cache, watcher := initController(kubeClient)
-
-	// TODO: Figure out of we need to test nginx.conf first
 
 	// Loop forever
 	for {
