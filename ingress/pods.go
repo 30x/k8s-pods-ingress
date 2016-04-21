@@ -26,38 +26,6 @@ const (
 	pathSegmentRegexStr = "^[A-Za-z0-9\\-._~!$&'()*+,;=:@]|%[0-9A-Fa-f]{2}$"
 )
 
-/*
-Incoming describes the information required to route an incoming request
-*/
-type Incoming struct {
-	Host string
-	Path string
-}
-
-/*
-Outgoing describes the information required to proxy to a backend
-*/
-type Outgoing struct {
-	IP   string
-	Port string
-}
-
-/*
-PodWithRoutes contains a pod and its routes
-*/
-type PodWithRoutes struct {
-	Pod    *api.Pod
-	Routes []*Route
-}
-
-/*
-Route describes the incoming route matching details and the outgoing proxy backend details
-*/
-type Route struct {
-	Incoming *Incoming
-	Outgoing *Outgoing
-}
-
 type pathPair struct {
 	Path string
 	Port string
@@ -86,18 +54,6 @@ func compileRegex(regexStr string) *regexp.Regexp {
 	}
 
 	return compiled
-}
-
-func filterPods(pods []api.Pod) []api.Pod {
-	var filtered []api.Pod
-
-	for _, pod := range pods {
-		if len(GetRoutes(&pod)) > 0 {
-			filtered = append(filtered, pod)
-		}
-	}
-
-	return filtered
 }
 
 func init() {
@@ -130,9 +86,6 @@ func GetMicroservicePodList(kubeClient *client.Client) (*api.PodList, error) {
 		return nil, err
 	}
 
-	// Filter the pods
-	podList.Items = filterPods(podList.Items)
-
 	return podList, nil
 }
 
@@ -147,7 +100,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 		var hosts []string
 		var pathPairs []*pathPair
 
-		annotation, ok := pod.ObjectMeta.Annotations[KeyTrafficHostsA]
+		annotation, ok := pod.Annotations[KeyTrafficHostsA]
 
 		// This pod does not have the trafficHosts annotation set
 		if ok {
@@ -171,7 +124,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 
 			// Do not process the routing paths if there are no valid hosts
 			if len(hosts) > 0 {
-				annotation, ok = pod.ObjectMeta.Annotations[KeyPublicPathsA]
+				annotation, ok = pod.Annotations[KeyPublicPathsA]
 
 				if ok {
 					for _, publicPath := range strings.Split(annotation, " ") {
@@ -280,7 +233,7 @@ func UpdatePodCacheForEvents(cache map[string]*PodWithRoutes, events []watch.Eve
 
 		case watch.Modified:
 			// Check if the pod still has the microservice label
-			if val, ok := pod.ObjectMeta.Labels[KeyMicroserviceL]; ok {
+			if val, ok := pod.Labels[KeyMicroserviceL]; ok {
 				if val != "true" {
 					log.Println("    Pod is no longer a microservice")
 

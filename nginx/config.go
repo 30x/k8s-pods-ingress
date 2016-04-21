@@ -2,6 +2,7 @@ package nginx
 
 import (
 	"bytes"
+	"encoding/base64"
 	"fmt"
 	"hash/fnv"
 	"log"
@@ -33,7 +34,11 @@ http {
 {{range $path, $location := $server.Locations}}
     location {{$path}} {
       proxy_set_header Host $host;
-      {{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.PodName}}{{end}}
+      {{if ne $location.Secret ""}}# Check the Ingress API Key (namespace: {{$location.Namespace}})
+      if ($http_x_ingress_api_key != '{{$location.Secret}}') {
+        return 403;
+      }
+      {{end}}{{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.PodName}}{{end}}
       proxy_pass http://{{$location.Server.Target}};
     }
 {{end}}  }
@@ -66,8 +71,10 @@ type hostT struct {
 }
 
 type locationT struct {
-	Path   string
-	Server *serverT
+	Namespace string
+	Path      string
+	Secret    string
+	Server    *serverT
 }
 
 type serverT struct {
@@ -106,11 +113,11 @@ func init() {
 }
 
 /*
-GetConfForPods takes the pod cache and returns a generated nginx configuration
+GetConf takes the ingress cache and returns a generated nginx configuration
 */
-func GetConfForPods(cache map[string]*ingress.PodWithRoutes) string {
+func GetConf(cache *ingress.Cache) string {
 	// Quick out if there are no pods in the cache
-	if len(cache) == 0 {
+	if len(cache.Pods) == 0 {
 		return DefaultNginxConf
 	}
 
@@ -120,7 +127,7 @@ func GetConfForPods(cache map[string]*ingress.PodWithRoutes) string {
 	}
 
 	// Process the pods to populate the nginx configuration data structure
-	for _, cacheEntry := range cache {
+	for _, cacheEntry := range cache.Pods {
 		// Process each pod route
 		for _, route := range cacheEntry.Routes {
 			host, ok := tmplData.Hosts[route.Incoming.Host]
@@ -130,6 +137,15 @@ func GetConfForPods(cache map[string]*ingress.PodWithRoutes) string {
 					Locations: make(map[string]*locationT),
 				}
 				host = tmplData.Hosts[route.Incoming.Host]
+			}
+
+			var locationSecret string
+			namespace := cacheEntry.Pod.Namespace
+			secret, ok := cache.Secrets[namespace]
+
+			if ok {
+				// There is guaranteed to be an API Key so no need to double check
+				locationSecret = base64.StdEncoding.EncodeToString(secret.Data[ingress.KeyIngressAPIKey])
 			}
 
 			location, ok := host.Locations[route.Incoming.Path]
@@ -187,7 +203,9 @@ func GetConfForPods(cache map[string]*ingress.PodWithRoutes) string {
 				}
 			} else {
 				host.Locations[route.Incoming.Path] = &locationT{
-					Path: route.Incoming.Path,
+					Namespace: namespace,
+					Path:      route.Incoming.Path,
+					Secret:    locationSecret,
 					Server: &serverT{
 						PodName: cacheEntry.Pod.Name,
 						Target:  target,

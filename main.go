@@ -10,11 +10,10 @@ import (
 
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
-	"k8s.io/kubernetes/pkg/fields"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
-func initController(kubeClient *client.Client) (map[string]*ingress.PodWithRoutes, watch.Interface) {
+func initController(kubeClient *client.Client) (*ingress.Cache, watch.Interface, watch.Interface) {
 	log.Println("Searching for microservices pods")
 
 	// Query the initial list of Pods
@@ -26,36 +25,58 @@ func initController(kubeClient *client.Client) (map[string]*ingress.PodWithRoute
 
 	log.Printf("  Pods found: %d", len(pods.Items))
 
-	// Create a cache which is a key/value pair where the key is the Pod name and the value is the Pod
-	cache := make(map[string]*ingress.PodWithRoutes)
+	// Create a cache to keep track of the ingress "API Keys" and Pods (with routes)
+	cache := &ingress.Cache{
+		Pods:    make(map[string]*ingress.PodWithRoutes),
+		Secrets: make(map[string]*api.Secret),
+	}
 
+	// Turn the pods into a map based on the pod's name
 	for _, pod := range pods.Items {
-		cache[pod.Name] = &ingress.PodWithRoutes{
+		cache.Pods[pod.Name] = &ingress.PodWithRoutes{
 			Pod:    &pod,
 			Routes: ingress.GetRoutes(&pod),
 		}
 	}
 
+	// Query the initial list of Secrets
+	secrets, err := ingress.GetIngressSecretList(kubeClient)
+
+	if err != nil {
+		log.Fatalf("Failed to query the initial list of secrets: %v", err)
+	}
+
+	log.Printf("  Secrets found: %d", len(secrets.Items))
+
 	// Generate the nginx configuration and restart nginx
-	nginx.StartServer(nginx.GetConfForPods(cache))
+	nginx.StartServer(nginx.GetConf(cache))
 
 	// Get the list options so we can create the watch
-	watchOptions := api.ListOptions{
-		FieldSelector:   fields.Everything(),
+	podWatchOptions := api.ListOptions{
 		LabelSelector:   ingress.MicroserviceLabelSelector,
 		ResourceVersion: pods.ListMeta.ResourceVersion,
 	}
 
 	// Create a watcher to be notified of Pod events
-	watcher, err := kubeClient.Pods(api.NamespaceAll).Watch(watchOptions)
-
-	log.Println("Watching pods for changes")
+	podWatcher, err := kubeClient.Pods(api.NamespaceAll).Watch(podWatchOptions)
 
 	if err != nil {
 		log.Fatalf("Failed to create pod watcher: %v.", err)
 	}
 
-	return cache, watcher
+	// Get the list options so we can create the watch
+	secretWatchOptions := api.ListOptions{
+		ResourceVersion: pods.ListMeta.ResourceVersion,
+	}
+
+	// Create a watcher to be notified of Pod events
+	secretWatcher, err := kubeClient.Secrets(api.NamespaceAll).Watch(secretWatchOptions)
+
+	if err != nil {
+		log.Fatalf("Failed to create secret watcher: %v.", err)
+	}
+
+	return cache, podWatcher, secretWatcher
 }
 
 /*
@@ -84,26 +105,40 @@ func main() {
 	nginx.StartServer("")
 
 	// Create the initial cache and watcher
-	cache, watcher := initController(kubeClient)
+	cache, podWatcher, secretWatcher := initController(kubeClient)
 
 	// Loop forever
 	for {
-		var events []watch.Event
+		var podEvents []watch.Event
+		var secretEvents []watch.Event
 
 		// Get a 2 seconds window worth of events
 		for {
+			doRestart := false
 			doStop := false
 
 			select {
-			case event, ok := <-watcher.ResultChan():
+			case event, ok := <-podWatcher.ResultChan():
 				if !ok {
-					log.Println("Kubernetes closed the watcher, restarting")
+					log.Println("Kubernetes closed the pod watcher, restarting")
 
-					watcher.Stop()
-
-					cache, watcher = initController(kubeClient)
+					doRestart = true
 				} else {
-					events = append(events, event)
+					podEvents = append(podEvents, event)
+				}
+
+			case event, ok := <-secretWatcher.ResultChan():
+				if !ok {
+					log.Println("Kubernetes closed the secret watcher, restarting")
+
+					doRestart = true
+				} else {
+					secret := event.Object.(*api.Secret)
+
+					// Only record secret events for secrets with the name we are interested in
+					if secret.Name == ingress.KeyIngressSecretName {
+						secretEvents = append(secretEvents, event)
+					}
 				}
 
 			// TODO: Rewrite to start the two seconds after the first post-restart event is seen
@@ -113,20 +148,37 @@ func main() {
 
 			if doStop {
 				break
+			} else if doRestart {
+				podWatcher.Stop()
+				secretWatcher.Stop()
+
+				cache, podWatcher, secretWatcher = initController(kubeClient)
 			}
 		}
 
-		if len(events) > 0 {
-			log.Printf("%d events found", len(events))
+		needsRestart := false
+
+		if len(podEvents) > 0 {
+			log.Printf("%d pod events found", len(podEvents))
 
 			// Update the cache based on the events and check if the server needs to be restarted
-			needsRestart := ingress.UpdatePodCacheForEvents(cache, events)
+			needsRestart = ingress.UpdatePodCacheForEvents(cache.Pods, podEvents)
+		}
 
+		if !needsRestart && len(secretEvents) > 0 {
+			log.Printf("%d secret events found", len(secretEvents))
+
+			// Update the cache based on the events and check if the server needs to be restarted
+			needsRestart = ingress.UpdateSecretCacheForEvents(cache.Secrets, secretEvents)
+		}
+
+		// Wrapped in an if/else to limit logging
+		if len(podEvents) > 0 || len(secretEvents) > 0 {
 			if needsRestart {
 				log.Println("  Requires nginx restart: yes")
 
 				// Restart nginx
-				nginx.StartServer(nginx.GetConfForPods(cache))
+				nginx.StartServer(nginx.GetConf(cache))
 			} else {
 				log.Println("  Requires nginx restart: no")
 			}

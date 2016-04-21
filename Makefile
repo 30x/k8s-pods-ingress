@@ -3,7 +3,7 @@ all: build
 check: test lint
 
 clean:
-	rm -f k8s-pods-ingress ingress/ingress.test kubernetes/kubernetes.test nginx/nginx.test
+	rm -f coverage.out k8s-pods-ingress ingress/ingress.test kubernetes/kubernetes.test nginx/nginx.test
 
 lint:
 	golint ingress
