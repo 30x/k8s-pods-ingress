@@ -35,6 +35,28 @@ and a `publicPaths` of `80:/ 3000:/nodejs`, you would have 4 separate nginx loca
 `host2/ -> {PodIP}:80`, `host1/nodejs -> {PodIP}:3000` and `host2/nodejs -> {PodIP}:3000`  Right now there is no way to
 associate specific paths to specific hosts but it may be something we support in the future.)_
 
+# Security
+
+While most ingresses will perform routing only, we have added a very simple mechanism to do API Key based authorization
+at the ingress level.  Why might you want this?  Imagine you've got multi-tenancy in k8s where each namespace is
+specific to a single tentant.  To avoid a pod in namespace `X` configuring itself to receive traffic from namespace `Y`,
+this ingress allows you to create a specially named secret _(`ingress` in this case)_ with a specially named data field
+_(`api-key`)_.  Once you do this, any traffic routed in your namespace will be pre-authorized by checking the request's
+`X-INGRESS-API-KEY` header for the base64-encoded value your secret.  Here is an example:
+
+```
+kubectl create secret generic ingress --from-literal=api-key=supersecret --namespace=my-namespace
+```
+
+Based on the example, any traffic routes that points to pods in the `my-namespace` namespace will be required to have
+`X-INGRESS-API-KEY: c3VwZXJzZWNyZXQ=` set in their request for the ingress to route to the pod.  Otherwise, a `403` is
+returned.
+
+**Note:** This feature is written assuming that a `trafficHost` is specific to only one namespace.  Once you start
+allowing pods from multiple namespaces to consume traffic for the same host and path combination, this falls apart.
+While the routing will work fine in this situation, the ingress' API Key is namespace specific and the first seen API
+Key is the one that is used.
+
 # Example
 
 Let's assume you've already deployed the ingress controller.  *(If you haven't, feel free to look at the
