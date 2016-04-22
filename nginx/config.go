@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"sort"
 	"text/template"
 
 	"github.com/30x/k8s-pods-ingress/ingress"
@@ -83,6 +84,8 @@ type serverT struct {
 	Target     string
 }
 
+type serversT []*serverT
+
 type templateDataT struct {
 	Hosts     map[string]*hostT
 	Upstreams map[string]*upstreamT
@@ -92,7 +95,19 @@ type upstreamT struct {
 	Host    string
 	Name    string
 	Path    string
-	Servers []*serverT
+	Servers serversT
+}
+
+func (slice serversT) Len() int {
+	return len(slice)
+}
+
+func (slice serversT) Less(i, j int) bool {
+	return slice[i].PodName < slice[j].PodName
+}
+
+func (slice serversT) Swap(i, j int) {
+	slice[i], slice[j] = slice[j], slice[i]
 }
 
 func hash(s string) uint32 {
@@ -178,6 +193,9 @@ func GetConf(cache *ingress.Cache) string {
 								PodName: cacheEntry.Pod.Name,
 								Target:  target,
 							})
+
+							// Sort to make finding your pods in an upstream easier
+							sort.Sort(upstream.Servers)
 						}
 					} else {
 						// Create the new upstream

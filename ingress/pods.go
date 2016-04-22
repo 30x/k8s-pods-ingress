@@ -221,11 +221,12 @@ func UpdatePodCacheForEvents(cache map[string]*PodWithRoutes, events []watch.Eve
 		case watch.Added:
 			// This event is likely never going to be handled in the real world because most pod add events happen prior to
 			// pod being routable but it's here just in case.
-			needsRestart = true
 			cache[pod.Name] = &PodWithRoutes{
 				Pod:    pod,
 				Routes: GetRoutes(pod),
 			}
+
+			needsRestart = len(cache[pod.Name].Routes) > 0
 
 		case watch.Deleted:
 			needsRestart = true
@@ -244,11 +245,12 @@ func UpdatePodCacheForEvents(cache map[string]*PodWithRoutes, events []watch.Eve
 				} else {
 					cached, ok := cache[pod.Name]
 
-					// If the annotations we're interested in change or if there is no cache entry, rebuild
+					// If anything routing related changes, trigger a server restart
 					if !ok ||
 						pod.Annotations[KeyMicroserviceL] != cached.Pod.Annotations[KeyMicroserviceL] ||
 						pod.Annotations[KeyTrafficHostsA] != cached.Pod.Annotations[KeyTrafficHostsA] ||
-						pod.Annotations[KeyPublicPathsA] != cached.Pod.Annotations[KeyPublicPathsA] {
+						pod.Annotations[KeyPublicPathsA] != cached.Pod.Annotations[KeyPublicPathsA] ||
+						pod.Status.Phase != cached.Pod.Status.Phase {
 						needsRestart = true
 					}
 
