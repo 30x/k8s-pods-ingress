@@ -357,175 +357,145 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 		"trafficHosts": "test.github.com",
 		"publicPaths":  "80:/",
 	}
+	cache := map[string]*PodWithRoutes{}
 	labels := map[string]string{
 		"microservice": "true",
 	}
-	addedPod := &api.Pod{
+	podName := "test-pod"
+
+	modifiedPodMicroserviceFalse := &api.Pod{
 		ObjectMeta: api.ObjectMeta{
-			Name:        "added",
-			Annotations: annotations,
-			Labels:      labels,
+			Labels: map[string]string{
+				"microservice": "false",
+			},
+			Name: podName,
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
 			PodIP: "10.244.1.17",
 		},
 	}
-	deletedPod := &api.Pod{
+	modifiedPodWithRoutes := &api.Pod{
 		ObjectMeta: api.ObjectMeta{
-			Name:        "deleted",
 			Annotations: annotations,
 			Labels:      labels,
+			Name:        podName,
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
-			PodIP: "10.244.1.18",
-		},
-	}
-	modifiedPod1 := &api.Pod{
-		ObjectMeta: api.ObjectMeta{
-			Name:        "modifiedPod1",
-			Annotations: annotations,
-			Labels:      labels,
-		},
-		Status: api.PodStatus{
-			Phase: api.PodRunning,
-			PodIP: "10.244.1.19",
-		},
-	}
-	modifiedPod2 := &api.Pod{
-		ObjectMeta: api.ObjectMeta{
-			Name:        "modifiedPod2",
-			Annotations: annotations,
-			Labels:      labels,
-		},
-		Status: api.PodStatus{
-			Phase: api.PodRunning,
-			PodIP: "10.244.1.20",
-		},
-	}
-	modifiedPod3 := &api.Pod{
-		ObjectMeta: api.ObjectMeta{
-			Name:        "modifiedPod3",
-			Annotations: annotations,
-			Labels:      labels,
-		},
-		Status: api.PodStatus{
-			Phase: api.PodRunning,
-			PodIP: "10.244.1.21",
+			PodIP: "10.244.1.17",
 		},
 	}
 	unroutablePod := &api.Pod{
 		ObjectMeta: api.ObjectMeta{
-			Name:   "unroutable",
-			Labels: labels,
+			Annotations: annotations,
+			Labels:      labels,
+			Name:        podName,
 		},
 		Status: api.PodStatus{
 			Phase: api.PodPending,
 		},
 	}
-	cache := map[string]*PodWithRoutes{
-		"deleted": &PodWithRoutes{
-			Pod:    deletedPod,
-			Routes: GetRoutes(deletedPod),
-		},
-		"modifiedPod1": &PodWithRoutes{
-			Pod:    modifiedPod1,
-			Routes: GetRoutes(modifiedPod1),
-		},
-		"modifiedPod2": &PodWithRoutes{
-			Pod:    modifiedPod2,
-			Routes: GetRoutes(modifiedPod2),
-		},
-		"modifiedPod3": &PodWithRoutes{
-			Pod:    modifiedPod3,
-			Routes: GetRoutes(modifiedPod3),
-		},
-	}
-	events := []watch.Event{
-		// Added but unroutable so it should not be in the cache
+
+	// Test adding an unroutable pod
+	needsRestart := UpdatePodCacheForEvents(cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Added,
 			Object: unroutablePod,
 		},
-		// Added and routable so it should be in the cache
-		watch.Event{
-			Type:   watch.Added,
-			Object: addedPod,
-		},
-		// Deleted and should be removed fromt he cache
-		watch.Event{
-			Type:   watch.Deleted,
-			Object: deletedPod,
-		},
-		// Modified and missing the microservice label so it should not be in the cache
-		watch.Event{
-			Type: watch.Modified,
-			Object: &api.Pod{
-				ObjectMeta: api.ObjectMeta{
-					Name:        "modifiedPod1",
-					Annotations: annotations,
-				},
-				Status: api.PodStatus{
-					Phase: api.PodRunning,
-					PodIP: "10.244.1.19",
-				},
-			},
-		},
-		// Modified and the microservice label is set to false so it should not be in the cache
-		watch.Event{
-			Type: watch.Modified,
-			Object: &api.Pod{
-				ObjectMeta: api.ObjectMeta{
-					Name:        "modifiedPod2",
-					Annotations: annotations,
-					Labels: map[string]string{
-						"microservice": "false",
-					},
-				},
-				Status: api.PodStatus{
-					Phase: api.PodRunning,
-					PodIP: "10.244.1.20",
-				},
-			},
-		},
-		// Modified and routable so it should be in the cache
-		watch.Event{
-			Type: watch.Modified,
-			Object: &api.Pod{
-				ObjectMeta: api.ObjectMeta{
-					Name: "modifiedPod3",
-					Annotations: map[string]string{
-						"trafficHosts": "prod.github.com",
-						"publicPaths":  "80:/v1/api",
-					},
-					Labels: labels,
-				},
-				Status: api.PodStatus{
-					Phase: api.PodRunning,
-					PodIP: "10.244.1.21",
-				},
-			},
-		},
+	})
+
+	if needsRestart {
+		t.Fatal("Server should not need a restart")
+	} else if _, ok := cache[podName]; !ok {
+		t.Fatal("Cache should reflect the added pod")
 	}
 
-	needsRestart := UpdatePodCacheForEvents(cache, events)
+	// Test modifying a pod to make it routable
+	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Modified,
+			Object: modifiedPodWithRoutes,
+		},
+	})
 
 	if !needsRestart {
-		t.Fatal("The server should need a restart")
+		t.Fatal("Server should need a restart")
 	}
 
-	if _, ok := cache["added"]; !ok {
-		t.Fatal("Cache should include the \"added\" pod")
+	// Test modifying a pod that does not change routes
+	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Modified,
+			Object: modifiedPodWithRoutes,
+		},
+	})
+
+	if needsRestart {
+		t.Fatal("Server should not need a restart")
 	}
 
-	for _, name := range []string{"deleted", "modifiedPod1", "modifiedPod2"} {
-		if _, ok := cache[name]; ok {
-			t.Fatalf("Cache should include the \"%s\" pod", name)
-		}
+	// Test modifying a pod to set the microservice label to false
+	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Modified,
+			Object: modifiedPodMicroserviceFalse,
+		},
+	})
+
+	if !needsRestart {
+		t.Fatal("Server should need a restart")
+	} else if len(cache) > 0 {
+		t.Fatal("Cache should reflect the modified (but removed) pod")
 	}
 
-	if _, ok := cache["modifiedPod3"].Pod.Annotations["publicPaths"]; !ok {
-		t.Fatalf("The \"modifiedPod3\" \"publicPaths\" annotation should had been updated")
+	// Test modifying a pod to remove its microservice label
+	_ = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Added,
+			Object: modifiedPodWithRoutes,
+		},
+	})
+
+	if len(cache) != 1 {
+		t.Fatal("There was an issue updating the cache")
+	}
+
+	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Modified,
+			Object: modifiedPodMicroserviceFalse,
+		},
+	})
+
+	if !needsRestart {
+		t.Fatal("Server should need a restart")
+	} else if len(cache) > 0 {
+		t.Fatal("Cache should reflect the modified (but removed) pod")
+	}
+
+	// Test deleting a pod
+	_ = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Added,
+			Object: modifiedPodWithRoutes,
+		},
+	})
+
+	if len(cache) != 1 {
+		t.Fatal("There was an issue updating the cache")
+	}
+
+	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+		watch.Event{
+			Type:   watch.Deleted,
+			Object: modifiedPodWithRoutes,
+		},
+	})
+
+	if !needsRestart {
+		t.Fatal("Server should need a restart")
+	} else if len(cache) > 0 {
+		t.Fatal("Cache should reflect the deleted pod")
 	}
 }
