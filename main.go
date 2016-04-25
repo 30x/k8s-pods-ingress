@@ -42,6 +42,11 @@ func initController(kubeClient *client.Client) (*ingress.Cache, watch.Interface,
 	// Query the initial list of Secrets
 	secrets, err := ingress.GetIngressSecretList(kubeClient)
 
+	// Turn the secrets into a map based on the secret's namespace
+	for _, secret := range secrets.Items {
+		cache.Secrets[secret.Namespace] = &secret
+	}
+
 	if err != nil {
 		log.Fatalf("Failed to query the initial list of secrets: %v", err)
 	}
