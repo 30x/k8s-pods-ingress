@@ -1,17 +1,24 @@
 package nginx
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/exec"
 )
 
-func shellOut(cmd string) {
+func shellOut(cmd string, allowFail bool) {
 	out, err := exec.Command("sh", "-c", cmd).CombinedOutput()
 
 	if err != nil {
-		log.Fatalf("Failed to execute %v: %v, err: %v", cmd, string(out), err)
+		msg := fmt.Sprintf("Failed to execute (%v): %v, err: %v", cmd, string(out), err)
+
+		if allowFail {
+			log.Println(msg)
+		} else {
+			log.Fatal(msg)
+		}
 	}
 }
 
@@ -41,11 +48,11 @@ func StartServer(conf string) {
 		if conf == "" {
 			log.Println("Starting nginx")
 
-			shellOut("nginx")
+			shellOut("nginx", false)
 		} else {
 			log.Println("Restarting nginx")
 
-			shellOut("nginx -s reload")
+			shellOut("nginx -s reload", true)
 		}
 	}
 }
