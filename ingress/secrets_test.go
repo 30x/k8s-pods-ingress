@@ -11,6 +11,8 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
+// config is set in pods_test.go
+
 func init() {
 	log.SetOutput(ioutil.Discard)
 }
@@ -25,15 +27,15 @@ func TestGetIngressSecretList(t *testing.T) {
 		t.Fatalf("Failed to create k8s client: %v.", err)
 	}
 
-	secretList, err := GetIngressSecretList(kubeClient)
+	secretList, err := GetIngressSecretList(config, kubeClient)
 
 	if err != nil {
 		t.Fatalf("Failed to get the ingress secrets: %v.", err)
 	}
 
 	for _, secret := range secretList.Items {
-		if secret.Name != KeyIngressSecretName {
-			t.Fatalf("Every secret should have a %s name", KeyIngressSecretName)
+		if secret.Name != config.APIKeySecret {
+			t.Fatalf("Every secret should have a %s name", config.APIKeySecret)
 		}
 	}
 }
@@ -49,7 +51,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 
 	addedSecret := &api.Secret{
 		ObjectMeta: api.ObjectMeta{
-			Name:      KeyIngressSecretName,
+			Name:      config.APIKeySecret,
 			Namespace: "my-namespace",
 		},
 		Data: map[string][]byte{
@@ -58,7 +60,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 	}
 	modifiedSecretNoRestart := &api.Secret{
 		ObjectMeta: api.ObjectMeta{
-			Name:      KeyIngressSecretName,
+			Name:      config.APIKeySecret,
 			Namespace: "my-namespace",
 		},
 		Data: map[string][]byte{
@@ -68,7 +70,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 	}
 	modifiedSecretRestart := &api.Secret{
 		ObjectMeta: api.ObjectMeta{
-			Name:      KeyIngressSecretName,
+			Name:      config.APIKeySecret,
 			Namespace: "my-namespace",
 		},
 		Data: map[string][]byte{
@@ -77,7 +79,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 	}
 
 	// Test add event
-	needsRestart := UpdateSecretCacheForEvents(cache, []watch.Event{
+	needsRestart := UpdateSecretCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Added,
 			Object: addedSecret,
@@ -91,7 +93,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 	}
 
 	// Test modify event with unchanged api-key
-	needsRestart = UpdateSecretCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdateSecretCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Modified,
 			Object: modifiedSecretNoRestart,
@@ -103,7 +105,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 	}
 
 	// Test modify event with changed api-key
-	needsRestart = UpdateSecretCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdateSecretCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Modified,
 			Object: modifiedSecretRestart,
@@ -114,12 +116,12 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 		t.Fatal("Server should require a restart")
 	}
 
-	if apiKeyStr == string(cache[namespace].Data[KeyIngressAPIKey][:]) {
+	if apiKeyStr == string(cache[namespace].Data[config.APIKeySecretDataField][:]) {
 		t.Fatal("Cache should have the updated secret")
 	}
 
 	// Test delete event
-	needsRestart = UpdateSecretCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdateSecretCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Deleted,
 			Object: addedSecret,

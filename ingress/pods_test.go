@@ -8,10 +8,21 @@ import (
 	"github.com/30x/k8s-pods-ingress/kubernetes"
 
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
+var config *Config
+
 func init() {
+	envConfig, err := ConfigFromEnv()
+
+	if err != nil {
+		log.Fatalf("Unable to get configuration from environment: %v", err)
+	}
+
+	config = envConfig
+
 	log.SetOutput(ioutil.Discard)
 }
 
@@ -58,30 +69,27 @@ func validateRoutes(t *testing.T, desc string, expected, actual []*Route) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetMicroservicePodList
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutablePodList
 */
-func TestGetMicroservicePodList(t *testing.T) {
+func TestGetRoutablePodList(t *testing.T) {
 	kubeClient, err := kubernetes.GetClient()
 
 	if err != nil {
 		t.Fatalf("Failed to create k8s client: %v.", err)
 	}
 
-	podsList, err := GetMicroservicePodList(kubeClient)
+	podsList, err := GetRoutablePodList(config, kubeClient)
 
 	if err != nil {
-		t.Fatalf("Failed to get the microservices pods: %v.", err)
+		t.Fatalf("Failed to get the routable pods: %v.", err)
 	}
 
 	for _, pod := range podsList.Items {
-		val, ok := pod.Labels[KeyMicroserviceL]
+		podLabels := labels.Set(pod.Labels)
 
-		if !ok {
-			t.Fatalf("Every pod should have a %s label", KeyMicroserviceL)
-		}
-
-		if val != "true" {
-			t.Fatalf("Every pod's %s label should be set to \"true\"", KeyMicroserviceL)
+		// Check if the pod still has the routable label
+		if !config.RoutableLabelSelector.Matches(podLabels) {
+			t.Fatalf("Every pod should match the (%s) label selector", config.RoutableLabelSelector)
 		}
 	}
 }
@@ -90,7 +98,7 @@ func TestGetMicroservicePodList(t *testing.T) {
 Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod is not running
 */
 func TestGetRoutesNotRunning(t *testing.T) {
-	validateRoutes(t, "pod not running", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod not running", []*Route{}, GetRoutes(config, &api.Pod{
 		Status: api.PodStatus{
 			Phase: api.PodPending,
 		},
@@ -98,10 +106,10 @@ func TestGetRoutesNotRunning(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has no trafficHosts annotation
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has no routingHosts annotation
 */
 func TestGetRoutesNoTrafficHosts(t *testing.T) {
-	validateRoutes(t, "pod has no trafficHosts annotation", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod has no routingHosts annotation", []*Route{}, GetRoutes(config, &api.Pod{
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
 		},
@@ -109,13 +117,13 @@ func TestGetRoutesNoTrafficHosts(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid trafficHosts annotation
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid routingHosts annotation
 */
 func TestGetRoutesInvalidTrafficHosts(t *testing.T) {
-	validateRoutes(t, "pod has an invalid trafficHosts host", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod has an invalid routingHosts host", []*Route{}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com test.",
+				"routingHosts": "test.github.com test.",
 			},
 		},
 		Status: api.PodStatus{
@@ -125,15 +133,15 @@ func TestGetRoutesInvalidTrafficHosts(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid port value in the publicPaths annotation
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid port value in the routingPaths annotation
 */
 func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 	// Not a valid integer
-	validateRoutes(t, "pod has an invalid publicPaths port (invalid integer)", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod has an invalid routingPaths port (invalid integer)", []*Route{}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com",
-				"publicPaths":  "abcdef:/",
+				"routingHosts": "test.github.com",
+				"routingPaths": "abcdef:/",
 			},
 		},
 		Status: api.PodStatus{
@@ -142,11 +150,11 @@ func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 	}))
 
 	// Port is less than 0
-	validateRoutes(t, "pod has an invalid publicPaths port (port < 0)", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod has an invalid routingPaths port (port < 0)", []*Route{}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com",
-				"publicPaths":  "-1:/",
+				"routingHosts": "test.github.com",
+				"routingPaths": "-1:/",
 			},
 		},
 		Status: api.PodStatus{
@@ -155,11 +163,11 @@ func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 	}))
 
 	// Port is greater than 65535
-	validateRoutes(t, "pod has an invalid publicPaths port (port > 65536)", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod has an invalid routingPaths port (port > 65536)", []*Route{}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com",
-				"publicPaths":  "77777:/",
+				"routingHosts": "test.github.com",
+				"routingPaths": "77777:/",
 			},
 		},
 		Status: api.PodStatus{
@@ -169,15 +177,15 @@ func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid path value in the publicPaths annotation
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid path value in the routingPaths annotation
 */
 func TestGetRoutesInvalidPublicPathsPath(t *testing.T) {
 	// "%ZZ" is not a valid path segment
-	validateRoutes(t, "pod has an invalid publicPaths path", []*Route{}, GetRoutes(&api.Pod{
+	validateRoutes(t, "pod has an invalid routingPaths path", []*Route{}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com",
-				"publicPaths":  "3000:/people/%ZZ",
+				"routingHosts": "test.github.com",
+				"routingPaths": "3000:/people/%ZZ",
 			},
 		},
 		Status: api.PodStatus{
@@ -187,7 +195,7 @@ func TestGetRoutesInvalidPublicPathsPath(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has no publicPaths annotation
+Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has no routingPaths annotation
 */
 func TestGetRoutesValidPods(t *testing.T) {
 	host1 := "test.github.com"
@@ -210,11 +218,11 @@ func TestGetRoutesValidPods(t *testing.T) {
 				Port: port1,
 			},
 		},
-	}, GetRoutes(&api.Pod{
+	}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": host1,
-				"publicPaths":  port1 + ":" + path1,
+				"routingHosts": host1,
+				"routingPaths": port1 + ":" + path1,
 			},
 		},
 		Status: api.PodStatus{
@@ -245,11 +253,11 @@ func TestGetRoutesValidPods(t *testing.T) {
 				Port: port2,
 			},
 		},
-	}, GetRoutes(&api.Pod{
+	}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": host1,
-				"publicPaths":  port1 + ":" + path1 + " " + port2 + ":" + path2,
+				"routingHosts": host1,
+				"routingPaths": port1 + ":" + path1 + " " + port2 + ":" + path2,
 			},
 		},
 		Status: api.PodStatus{
@@ -280,11 +288,11 @@ func TestGetRoutesValidPods(t *testing.T) {
 				Port: port1,
 			},
 		},
-	}, GetRoutes(&api.Pod{
+	}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": host1 + " " + host2,
-				"publicPaths":  port1 + ":" + path1,
+				"routingHosts": host1 + " " + host2,
+				"routingPaths": port1 + ":" + path1,
 			},
 		},
 		Status: api.PodStatus{
@@ -335,11 +343,11 @@ func TestGetRoutesValidPods(t *testing.T) {
 				Port: port2,
 			},
 		},
-	}, GetRoutes(&api.Pod{
+	}, GetRoutes(config, &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": host1 + " " + host2,
-				"publicPaths":  port1 + ":" + path1 + " " + port2 + ":" + path2,
+				"routingHosts": host1 + " " + host2,
+				"routingPaths": port1 + ":" + path1 + " " + port2 + ":" + path2,
 			},
 		},
 		Status: api.PodStatus{
@@ -354,19 +362,19 @@ Test for github.com/30x/k8s-pods-ingress/ingress/pods#UpdatePodCacheForEvents
 */
 func TestUpdatePodCacheForEvents(t *testing.T) {
 	annotations := map[string]string{
-		"trafficHosts": "test.github.com",
-		"publicPaths":  "80:/",
+		"routingHosts": "test.github.com",
+		"routingPaths": "80:/",
 	}
 	cache := map[string]*PodWithRoutes{}
 	labels := map[string]string{
-		"microservice": "true",
+		"routable": "true",
 	}
 	podName := "test-pod"
 
-	modifiedPodMicroserviceFalse := &api.Pod{
+	modifiedPodRoutableFalse := &api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Labels: map[string]string{
-				"microservice": "false",
+				"routable": "false",
 			},
 			Name: podName,
 		},
@@ -398,7 +406,7 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 	}
 
 	// Test adding an unroutable pod
-	needsRestart := UpdatePodCacheForEvents(cache, []watch.Event{
+	needsRestart := UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Added,
 			Object: unroutablePod,
@@ -412,7 +420,7 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 	}
 
 	// Test modifying a pod to make it routable
-	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Modified,
 			Object: modifiedPodWithRoutes,
@@ -424,7 +432,7 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 	}
 
 	// Test modifying a pod that does not change routes
-	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Modified,
 			Object: modifiedPodWithRoutes,
@@ -435,11 +443,11 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 		t.Fatal("Server should not need a restart")
 	}
 
-	// Test modifying a pod to set the microservice label to false
-	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+	// Test modifying a pod to set the routable label to false
+	needsRestart = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Modified,
-			Object: modifiedPodMicroserviceFalse,
+			Object: modifiedPodRoutableFalse,
 		},
 	})
 
@@ -449,8 +457,8 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 		t.Fatal("Cache should reflect the modified (but removed) pod")
 	}
 
-	// Test modifying a pod to remove its microservice label
-	_ = UpdatePodCacheForEvents(cache, []watch.Event{
+	// Test modifying a pod to remove its routable label
+	_ = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Added,
 			Object: modifiedPodWithRoutes,
@@ -461,10 +469,10 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 		t.Fatal("There was an issue updating the cache")
 	}
 
-	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Modified,
-			Object: modifiedPodMicroserviceFalse,
+			Object: modifiedPodRoutableFalse,
 		},
 	})
 
@@ -475,7 +483,7 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 	}
 
 	// Test deleting a pod
-	_ = UpdatePodCacheForEvents(cache, []watch.Event{
+	_ = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Added,
 			Object: modifiedPodWithRoutes,
@@ -486,7 +494,7 @@ func TestUpdatePodCacheForEvents(t *testing.T) {
 		t.Fatal("There was an issue updating the cache")
 	}
 
-	needsRestart = UpdatePodCacheForEvents(cache, []watch.Event{
+	needsRestart = UpdatePodCacheForEvents(config, cache, []watch.Event{
 		watch.Event{
 			Type:   watch.Deleted,
 			Object: modifiedPodWithRoutes,

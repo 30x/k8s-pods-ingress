@@ -13,11 +13,11 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
-func initController(kubeClient *client.Client) (*ingress.Cache, watch.Interface, watch.Interface) {
-	log.Println("Searching for microservices pods")
+func initController(config *ingress.Config, kubeClient *client.Client) (*ingress.Cache, watch.Interface, watch.Interface) {
+	log.Println("Searching for routable pods")
 
 	// Query the initial list of Pods
-	pods, err := ingress.GetMicroservicePodList(kubeClient)
+	pods, err := ingress.GetRoutablePodList(config, kubeClient)
 
 	if err != nil {
 		log.Fatalf("Failed to query the initial list of pods: %v.", err)
@@ -35,12 +35,12 @@ func initController(kubeClient *client.Client) (*ingress.Cache, watch.Interface,
 	for _, pod := range pods.Items {
 		cache.Pods[pod.Name] = &ingress.PodWithRoutes{
 			Pod:    &pod,
-			Routes: ingress.GetRoutes(&pod),
+			Routes: ingress.GetRoutes(config, &pod),
 		}
 	}
 
 	// Query the initial list of Secrets
-	secrets, err := ingress.GetIngressSecretList(kubeClient)
+	secrets, err := ingress.GetIngressSecretList(config, kubeClient)
 
 	// Turn the secrets into a map based on the secret's namespace
 	for _, secret := range secrets.Items {
@@ -54,11 +54,11 @@ func initController(kubeClient *client.Client) (*ingress.Cache, watch.Interface,
 	log.Printf("  Secrets found: %d", len(secrets.Items))
 
 	// Generate the nginx configuration and restart nginx
-	nginx.StartServer(nginx.GetConf(cache))
+	nginx.StartServer(nginx.GetConf(config, cache))
 
 	// Get the list options so we can create the watch
 	podWatchOptions := api.ListOptions{
-		LabelSelector:   ingress.MicroserviceLabelSelector,
+		LabelSelector:   config.RoutableLabelSelector,
 		ResourceVersion: pods.ListMeta.ResourceVersion,
 	}
 
@@ -85,19 +85,23 @@ func initController(kubeClient *client.Client) (*ingress.Cache, watch.Interface,
 }
 
 /*
-Simple Go application that will behave as a Kubernetes Ingress controller.  It does this by running nginx and updating
-the nginx configuration based on pertinent Pod events.  To be considered for this controller the pod needs to have the
-`microservice` label set to true.  Then the the pod needs to have annotations whose keys follow the following naming
-convention:
+Simple Go application that provides routing for host+path combinations to Kubernetes pods.  For more details on how to
+configure this, please review the design document located here:
 
-  * trafficHosts: This is a space delimited list of public hosts that route to the pod(s)
-  * publicPaths: This is the space delimited list of `{CONTAINER_PORT}:{PATH}` combinations that define the path routing
+https://github.com/30x/k8s-pods-ingress#design
 
 This application is written to run inside the Kubernetes cluster but for outside of Kubernetes you can set the
 `KUBE_HOST` environment variable to run in a mock mode.
 */
 func main() {
-	log.Println("Starting the Kubernetes Pods-based Ingress")
+	log.Println("Starting the Kubernetes Router")
+
+	// Get the configuration
+	config, err := ingress.ConfigFromEnv()
+
+	if err != nil {
+		log.Fatalf("Invalid configuration: %v.", err)
+	}
 
 	// Create the Kubernetes Client
 	kubeClient, err := kubernetes.GetClient()
@@ -110,7 +114,7 @@ func main() {
 	nginx.StartServer("")
 
 	// Create the initial cache and watcher
-	cache, podWatcher, secretWatcher := initController(kubeClient)
+	cache, podWatcher, secretWatcher := initController(config, kubeClient)
 
 	// Loop forever
 	for {
@@ -141,7 +145,7 @@ func main() {
 					secret := event.Object.(*api.Secret)
 
 					// Only record secret events for secrets with the name we are interested in
-					if secret.Name == ingress.KeyIngressSecretName {
+					if secret.Name == config.APIKeySecret {
 						secretEvents = append(secretEvents, event)
 					}
 				}
@@ -157,7 +161,7 @@ func main() {
 				podWatcher.Stop()
 				secretWatcher.Stop()
 
-				cache, podWatcher, secretWatcher = initController(kubeClient)
+				cache, podWatcher, secretWatcher = initController(config, kubeClient)
 			}
 		}
 
@@ -167,14 +171,14 @@ func main() {
 			log.Printf("%d pod events found", len(podEvents))
 
 			// Update the cache based on the events and check if the server needs to be restarted
-			needsRestart = ingress.UpdatePodCacheForEvents(cache.Pods, podEvents)
+			needsRestart = ingress.UpdatePodCacheForEvents(config, cache.Pods, podEvents)
 		}
 
 		if !needsRestart && len(secretEvents) > 0 {
 			log.Printf("%d secret events found", len(secretEvents))
 
 			// Update the cache based on the events and check if the server needs to be restarted
-			needsRestart = ingress.UpdateSecretCacheForEvents(cache.Secrets, secretEvents)
+			needsRestart = ingress.UpdateSecretCacheForEvents(config, cache.Secrets, secretEvents)
 		}
 
 		// Wrapped in an if/else to limit logging
@@ -183,7 +187,7 @@ func main() {
 				log.Println("  Requires nginx restart: yes")
 
 				// Restart nginx
-				nginx.StartServer(nginx.GetConf(cache))
+				nginx.StartServer(nginx.GetConf(config, cache))
 			} else {
 				log.Println("  Requires nginx restart: no")
 			}
