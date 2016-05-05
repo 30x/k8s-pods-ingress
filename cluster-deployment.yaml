@@ -11,7 +11,9 @@ spec:
   template:
     metadata:
       labels:
-        app: k8s-pods-ingress
+        app: k8s-pods-ingress 
+      annotations: 
+        projectcalico.org/policy: "allow tcp from cidr 192.168.0.0/16; allow tcp from cidr 10.129.0.0/16"
     spec:
       containers:
       - image: registry-1.docker.io/whitlockjc/k8s-pods-ingress:v0

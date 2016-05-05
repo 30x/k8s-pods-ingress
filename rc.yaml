@@ -10,6 +10,8 @@ spec:
     app: k8s-pods-ingress
   template:
     metadata:
+      annotations: 
+        projectcalico.org/policy: "allow tcp from cidr 192.168.0.0/16; allow tcp from cidr 10.129.0.0/16"
       labels:
         app: k8s-pods-ingress
     spec:
