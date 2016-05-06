@@ -35,8 +35,8 @@ http {
 {{range $path, $location := $server.Locations}}
     location {{$path}} {
       proxy_set_header Host $host;
-      {{if ne $location.Secret ""}}# Check the Ingress API Key (namespace: {{$location.Namespace}})
-      if ($http_x_ingress_api_key != '{{$location.Secret}}') {
+      {{if ne $location.Secret ""}}# Check the Routing API Key (namespace: {{$location.Namespace}})
+      if ($http_x_routing_api_key != '{{$location.Secret}}') {
         return 403;
       }
       {{end}}{{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.PodName}}{{end}}
@@ -130,7 +130,7 @@ func init() {
 /*
 GetConf takes the ingress cache and returns a generated nginx configuration
 */
-func GetConf(cache *ingress.Cache) string {
+func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 	// Quick out if there are no pods in the cache
 	if len(cache.Pods) == 0 {
 		return DefaultNginxConf
@@ -160,13 +160,13 @@ func GetConf(cache *ingress.Cache) string {
 
 			if ok {
 				// There is guaranteed to be an API Key so no need to double check
-				locationSecret = base64.StdEncoding.EncodeToString(secret.Data[ingress.KeyIngressAPIKey])
+				locationSecret = base64.StdEncoding.EncodeToString(secret.Data[config.APIKeySecretDataField])
 			}
 
 			location, ok := host.Locations[route.Incoming.Path]
 			upstreamKey := route.Incoming.Host + route.Incoming.Path
 			upstreamHash := fmt.Sprint(hash(upstreamKey))
-			upstreamName := "microservice" + upstreamHash
+			upstreamName := "upstream" + upstreamHash
 			target := route.Outgoing.IP
 
 			if route.Outgoing.Port != "80" && route.Outgoing.Port != "443" {

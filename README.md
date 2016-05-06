@@ -1,68 +1,93 @@
 # Overview
 
-This project contains a proof of concept ingress controller for Kubernetes.  There are a few things that are done
-differently for this ingress than your typical
-[Kubernetes Ingress controller](http://kubernetes.io/v1.1/docs/user-guide/ingress.html):
+The purpose of this project is to provide a name and path based router for Kubernetes.  It started out as an ingress
+controller but has since been repurposed to allow for both ingress and other types of routing via to its
+configurability.  From an ingress perspective, this router does things a little different than your typical 
+[Kubernetes Ingress controller](http://kubernetes.io/docs/user-guide/ingress/):
 
 * This version does pod-level routing instead of service-level routing
 * This version does not use the
-[Kubernetes Ingress Resource](http://kubernetes.io/v1.1/docs/user-guide/ingress.html#the-ingress-resource) definitions
-and instead uses pod-level annotations to wire things up *(This design was not my doing and was dictated by an internal
-design)*
+[Kubernetes Ingress Resource](http://kubernetes.io/docs/user-guide/ingress/#the-ingress-resource) definitions
+and instead uses pod-level annotations to wire things up _(This is partially because the built-in ingress resource
+is intended for service-based ingress instead of pod-based ingress.)_
 
-The current state of this project is that this is a proof of concept driven by an internal design.  That design and
-this implementation could change at any time.
+But in the end, you have a routing controller capable of doing routing based on the combination of hostname/IP and path.
 
 # Design
 
-This ingress controller is written in Go and upon startup, this controller will get a list of all pods across all
-namespaces having the `microservice` label set to `true`.  These pods are then analyzed for the necessary wiring
-configuration annotations:
+This router is written in Go and is intended to be deployed within a container on Kubernetes.  Upon startup, this router
+will find the [Pods](http://kubernetes.io/docs/user-guide/pods/) marked for routing _(using a configurable label
+selector)_ and the [Secrets](http://kubernetes.io/docs/user-guide/secrets/) *(using a configurable location)_ used to
+secure routing for those pods.  _(For more details on the role secrets play in this router, please see the
+[Security section](#security) of this document.)_ The Pods marked for routing are then analyzed to identify the wiring
+information used for routing stored in the Pod's [annotations](http://kubernetes.io/docs/user-guide/annotations/):
 
-* `trafficHosts`: This is a space delimited array of hosts that the pod should serve traffic for *(required)*
-* `publicPaths`: This is the space delimited array of public paths that the pod should serve traffic for *(required, the
-value's format is `{PORT}:{PATH}` where `{PORT}` corresponds to the container port serving the traffic for the `{PATH)`*
+* `routingHosts`: This is a space delimited array of hostnames and/or IP addresses that are expected to route to the
+Pod _(Example: `test.github.com 192.168.0.1`)_
+* `routingPaths`: This is the space delimited array of request path or path prefixes that are expected to route to the
+Pod and its appropriate container port.  _(The value's format is `{PORT}:{PATH}` where `{PORT}` corresponds to the
+container port serving the traffic for the `{PATH}`.  Example: `3000:/nodejs 8080:/java`.)_
 
-Once we've found all pods that are properly configured as microservices, we generate an nginx configuration file.
+Once we've found all Pods and Secrets that are involved in routing, we generate an nginx configuration file and start
+nginx.  At this point, we cache Pods and Secrets to avoid having to requery the full list each time and instead listen
+for Pod and Secret events.  Any time a Pod or Secret event occurs that would have an impact on routing, we regenerate
+the nginx configuration and reload it.  _(The idea here was to allow for an initial hit to pull all pods but to then
+to use the events for as quick a turnaround as possible.)_  Events are processed in 2 second chunks.
 
-This initial list of pods is then cached and from this point forward we listen for pod events and alter our internal
-cache accordingly based on the pod event.  *(The idea here was to allow for an initial hit to pull all pods but to then
-to use the events for as quick a turnaround as possible.)*  Events are processed in 2 second chunks.
+Each Pod can expose one or more services by using one or more entries in the `routingPaths` annotation.  All of the
+paths exposed via `routingPaths` are exposed for each of the hosts listed in the `routingHosts` annotation.  _(So if
+you have a trafficHosts of `host1 host2` and a `routingPaths` of `80:/ 3000:/nodejs`, you would have 4 separate nginx
+location blocks: `host1/ -> {PodIP}:80`, `host2/ -> {PodIP}:80`, `host1/nodejs -> {PodIP}:3000` and
+`host2/nodejs -> {PodIP}:3000`  Right now there is no way to associate specific paths to specific hosts but it may be
+something we support in the future.)_
 
-Each pod can expose one or more services using multiple entries in the `publicPaths` annotation.  All paths/services are
-exposed for each of the hosts listed in the `trafficHosts` annotation.  _(So if you have a trafficHosts of `host1 host2`
-and a `publicPaths` of `80:/ 3000:/nodejs`, you would have 4 separate nginx location blocks: `host1/ -> {PodIP}:80`,
-`host2/ -> {PodIP}:80`, `host1/nodejs -> {PodIP}:3000` and `host2/nodejs -> {PodIP}:3000`  Right now there is no way to
-associate specific paths to specific hosts but it may be something we support in the future.)_
+# Configuration
+
+All of the touch points for this router are configurable via environment variables:
+
+* `API_KEY_SECRET_LOCATION`: This is the location of the optional API Key to use to secure communication to your Pods.
+_(The format for this key is `{SECRET_NAME}:{SECRET_DATA_FIELD_NAME}`.  Default: `routing:api-key`)_
+* `HOSTS_ANNOTATION`: This is the annotation name used to store the space delimited array of hosts used for routing to
+your Pods _(Default: `routingHosts`)_
+* `PATHS_ANNOTATION`: This is the annotation name used to store the space delimited array of routing path configurations
+for your Pods _(Default: `routingPaths`)_
+* `ROUTING_LABEL_SELECTOR`: This is the [label selector](http://kubernetes.io/docs/user-guide/labels/#label-selectors)
+used to identify Pods that are marked for routing _(Default: `routable=true`)_
 
 # Security
 
-While most ingresses will perform routing only, we have added a very simple mechanism to do API Key based authorization
-at the ingress level.  Why might you want this?  Imagine you've got multi-tenancy in k8s where each namespace is
-specific to a single tentant.  To avoid a pod in namespace `X` configuring itself to receive traffic from namespace `Y`,
-this ingress allows you to create a specially named secret _(`ingress` in this case)_ with a specially named data field
-_(`api-key`)_.  Once you do this, any traffic routed in your namespace will be pre-authorized by checking the request's
-`X-INGRESS-API-KEY` header for the base64-encoded value your secret.  Here is an example:
+While most routers will perform routing only, we have added a very simple mechanism to do API Key based authorization
+at the router level.  Why might you want this?  Imagine you've got multi-tenancy in Kubernetes where each namespace is
+specific to a single tentant.  To avoid a Pod in namespace `X` configuring itself to receive traffic from namespace `Y`,
+this router allows you to create a specially named secret _(`routing` in this case)_ with a specially named data field
+_(`api-key`)_ and the value stored in this secret will be used to secure traffic to all Pods in your namespace wired up
+for routing.  To do this, nginx is configured to ensure that all requests routed to your Pod have the
+`X-ROUTING-API-KEY` header provided with its value being the base64-encoded value of your secret.
+
+Here is an example of how you might create this secret so that all Pods wired up for routing in the `my-namespace`
+namespace are secured via API Key:
 
 ```
-kubectl create secret generic ingress --from-literal=api-key=supersecret --namespace=my-namespace
+kubectl create secret generic routing --from-literal=api-key=supersecret --namespace=my-namespace
 ```
 
-Based on the example, any traffic routes that points to pods in the `my-namespace` namespace will be required to have
-`X-INGRESS-API-KEY: c3VwZXJzZWNyZXQ=` set in their request for the ingress to route to the pod.  Otherwise, a `403` is
-returned.
+Based on the example, any routes that points to Pods in the `my-namespace` namespace will be required to have
+`X-ROUTING-API-KEY: c3VwZXJzZWNyZXQ=` set in their request for the router to allow routing to the Pods.  Otherwise, a
+`403` is returned.  Of course, if your namespace does not have the specially named secret, you do not have to adhere to
+provide this header.
 
-**Note:** This feature is written assuming that a `trafficHost` is specific to only one namespace.  Once you start
-allowing pods from multiple namespaces to consume traffic for the same host and path combination, this falls apart.
-While the routing will work fine in this situation, the ingress' API Key is namespace specific and the first seen API
-Key is the one that is used.
+**Note:** This feature is written assuming that each combination of `routingHosts` and `routingPaths` will only be
+configured such that the Pods servicing the traffice are from a single namespace.  Once you start allowing pods from
+multiple namespaces to consume traffic for the same host and path combination, this falls apart.  While the routing will
+work fine in this situation, the router's API Key is namespace specific and the first seen API Key is the one that is
+used.
 
 # Example
 
-Let's assume you've already deployed the ingress controller.  *(If you haven't, feel free to look at the
-[Building and Running](#building-and-running) section of the documentation.)*  When the ingress starts up, nginx is
-configured and started on your behalf.  The generated `/etc/nginx/nginx.conf` that the ingress starts with looks like
-this *(assuming you do not have any deployed microservices)*:
+Let's assume you've already deployed the router controller.  _(If you haven't, feel free to look at the
+[Building and Running](#building-and-running) section of the documentation.)_  When the router starts up, nginx is
+configured and started on your behalf.  The generated `/etc/nginx/nginx.conf` that the router starts with looks like
+this _(assuming you do not have any deployed Pods marked for routing)_:
 
 ``` nginx
 # A very simple nginx configuration file that forces nginx to start as a daemon.
@@ -78,11 +103,11 @@ daemon on;
 ```
 
 This configuration will tell nginx to listen on port `80` and all requests for unknown hosts will be closed, as if there
-was no server listening for traffic.  *(This approach is better than reporting a `404` because a `404` says someone is
+was no server listening for traffic.  _(This approach is better than reporting a `404` because a `404` says someone is
 there but the request was for a missing resource while closing the connection says that the request was for a server
-that didn't exist, or in our case a request was made to a host that our ingress is unaware of.)*
+that didn't exist, or in our case a request was made to a host that our router is unaware of.)_
 
-Now that we know how the ingress spins up nginx initially, let's deploy a _microservice_ to Kubernetes.  To do that, we
+Now that we know how the router spins up nginx initially, let's deploy a _microservice_ to Kubernetes.  To do that, we
 will be packaging up a simple Node.js application that prints out the environment details of its running container,
 including the IP address(es) of its host.  To do this, we will build a Docker image, publish the Docker image and then
 create a Kubernetes ReplicationController that will deploy one pod representing our microservice.
@@ -98,7 +123,7 @@ image for our microservice.
 
 The next step is to deploy our microservice to Kubernetes but before we do this, let's look at the ReplicationController
 configuration file to see what is going on.  Here is the `rc.yaml` we'll be using to deploy our microservice
-*(Same as `demo/rc.yaml`)*:
+_(Same as `demo/rc.yaml`)_:
 
 ``` yaml
 apiVersion: v1
@@ -115,13 +140,13 @@ spec:
     metadata:
       labels:
         name: nodejs-k8s-env
-        # This marks the pod as a microservice
-        microservice: "true"
+        # This marks the pod as routable
+        routable: "true"
       annotations:
         # This says that only traffic for the "test.k8s.local" host will be routed to this pod
-        trafficHosts: "test.k8s.local"
+        routingHosts: "test.k8s.local"
         # This says that only traffic for the "/nodejs" path and its sub paths will be routed to this pod, on port 3000
-        publicPaths: "3000:/nodejs"
+        routingPaths: "3000:/nodejs"
     spec:
       containers:
       - name: nodejs-k8s-env
@@ -133,8 +158,8 @@ spec:
           - containerPort: 3000
 ```
 
-When we deploy our microservice usin `kubectl create -f rc.yaml`, the ingress will notice that we now have one pod
-running that is marked as a microservice.  If you were tailing the logs, or you were to review the content of
+When we deploy our microservice using `kubectl create -f rc.yaml`, the router will notice that we now have one Pod
+running that is marked for routing.  If you were tailing the logs, or you were to review the content of
 `/etc/nginx/nginx.conf` in the container, you should see that it now reflects that we have a new microservice
 deployed:
 
@@ -168,7 +193,7 @@ http {
 ```
 
 This means that if someone requests `http://test.k8s.local/nodejs`, assuming you've got `test.k8s.local` pointed to the
-edge of your Kubernetes cluster, it should get routed to the proper pod *(`nodejs-k8s-env-eq7mh` in our example)*.  If
+edge of your Kubernetes cluster, it should get routed to the proper Pod _(`nodejs-k8s-env-eq7mh` in our example)_.  If
 everything worked out properly, you should see output like this:
 
 ``` json
@@ -210,7 +235,7 @@ http {
   server_names_hash_bucket_size 64;
 
   # Upstream for /nodejs traffic on test.k8s.local
-  upstream microservice1866206336 {
+  upstream upstream1866206336 {
     # Pod nodejs-k8s-env-eq7mh
     server 10.244.69.6:3000;
     # Pod nodejs-k8s-env-yr1my
@@ -225,8 +250,8 @@ http {
 
     location /nodejs {
       proxy_set_header Host $host;
-      # Upstream microservice1866206336
-      proxy_pass http://microservice1866206336;
+      # Upstream upstream1866206336
+      proxy_pass http://upstream1866206336;
     }
   }
 
@@ -238,11 +263,11 @@ http {
 }
 ```
 
-The big change between the one pod microservice and the N pod microservice is that now the nginx configuration uses
+The big change between the one Pod microservice and the N Pod microservice is that now the nginx configuration uses
 the nginx [upstream](http://nginx.org/en/docs/http/ngx_http_upstream_module.html) to do load balancing across the N
-different pods.  And due to the default load balancer in nginx being round-robin based, requests for
+different Pods.  And due to the default load balancer in nginx being round-robin based, requests for
 `http://test.k8s.local/nodejs` should return a different payload for each request showing that you are indeed
-hitting each individual pod.
+hitting each individual Pod.
 
 I hope this example gave you a better idea of how this all works.  If not, let us know how to make it better.
 
@@ -256,7 +281,7 @@ If you're testing this outside of Kubernetes, you can just use `go build` follow
 * `docker tag ...`
 * `docker push ...`
 
-*(The `...` are there because your Docker comands will likely be different than mine or someone else's)*  We have an
+_(The `...` are there because your Docker comands will likely be different than mine or someone else's)_  We have an
 example `rc.yaml` for deploying the k8s-pods-ingress to Kubernetes.  Here is how I test locally:
 
 * `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
@@ -265,11 +290,133 @@ example `rc.yaml` for deploying the k8s-pods-ingress to Kubernetes.  Here is how
 * `docker push 192.168.64.1:5000/k8s-pods-ingress`
 * `kubectl create -f rc.yaml`
 
-**Note:** This ingress is written to be ran within Kubernetes but for testing purposes, it can be ran outside of
+**Note:** This router is written to be ran within Kubernetes but for testing purposes, it can be ran outside of
 Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to the
-Kubernetes API.  *(Example: `http://192.168.64.2:8080`)*  When ran outside the container, nginx itself will not be
+Kubernetes API.  _(Example: `http://192.168.64.2:8080`)_  When ran outside the container, nginx itself will not be
 started and its configuration file will not be written to disk, only printed to stdout.  This might change in the future
 but for now, this support is only as a convenience.
+
+# Multipurpose Deployments
+
+As mentioned above, this project started out as an ingress with the sole purpose of routing traffic from the internet
+to Pods within the Kubernetes cluster.  One of the use cases we have at work is we need an general ingress but we also
+want to use this router for a simplistic service router.  So essentially, we have a public ingress and a
+private...router.  Here is an example deployment file where you use the configurability of this router to serve both
+purposes:
+
+``` yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: k8s-pods-ingress
+  labels:
+    app: k8s-pods-ingress
+spec:
+  replicas: 1
+  selector:
+    app: k8s-pods-ingress
+  template:
+    metadata:
+      labels:
+        app: k8s-pods-ingress
+    spec:
+      containers:
+      # This is the ingress or public facing router
+      - image: whitlockjc/k8s-pods-ingress:v0
+        imagePullPolicy: Always
+        name: k8s-pods-ingress
+        ports:
+          - containerPort: 80
+            hostPort: 80
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          # Use the configuration to use the public/private paradigm (public version)
+          - name: API_SECRET_LOCATION
+            value: routing:public-api-key
+          - name: HOSTS_ANNOTATION
+            value: publicHosts
+          - name: PATHS_ANNOTATION
+            value: publicPaths
+      # This is the internal or private facing router
+      - image: whitlockjc/k8s-pods-ingress:v0
+        imagePullPolicy: Always
+        name: k8s-pods-ingress
+        ports:
+          - containerPort: 80
+            # We might be able to not expose a host port but if we do, we should lock it down
+            hostPort: 8080
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          # Use the configuration to use the public/private paradigm (private version)
+          - name: API_SECRET_LOCATION
+            value: routing:private-api-key
+          - name: HOSTS_ANNOTATION
+            value: privateHosts
+          - name: PATHS_ANNOTATION
+            value: privatePaths
+```
+
+Based on this deployment, we have an ingress that serves `publicHosts` and `publicPaths` combinations and an internal
+router that serves `privateHosts` and `privatePaths` combinations.  With this being the case, let's take our example
+Node.js application deployed above and lets deploy a variant over it that has both public and private paths:
+
+``` yaml
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  name: nodejs-k8s-env
+  labels:
+    name: nodejs-k8s-env
+spec:
+  replicas: 1
+  selector:
+    name: nodejs-k8s-env
+  template:
+    metadata:
+      labels:
+        name: nodejs-k8s-env
+        routable: "true"
+      annotations:
+        # Private routing information
+        privateHosts: "test.k8s.local"
+        privatePaths: "3000:/internal"
+        # Public routing information
+        publicHosts: "test.k8s.com"
+        publicPaths: "3000:/public"
+    spec:
+      containers:
+      - name: nodejs-k8s-env
+        image: whitlockjc/nodejs-k8s-env
+        env:
+          - name: PORT
+            value: "3000"
+        ports:
+          - containerPort: 3000
+```
+
+Now if we were to `curl http://test.k8s.com/nodejs` from outside of Kubernetes, assuming DNS was setup properly, the
+ingress router would route properly but if we were to `curl http://test.k8s.local/nodejs`, it wouldn't go anywhere.  Not
+only that, if I were to `curl http://test.k8s.com/internal`, it also would not go anywhere.  The only way to access the
+`/internal` path would be to be within Kubernetes, with DNS properly setup, and to
+`curl http://test.k8s.local/internal`.
+
+Now I realize this is a somewhat convoluted example but the purpose was to show how we could use the same code base to
+serve different roles using configuration alone.  Thet network isolation and security required to do this properly is
+outside the scope of this example.
 
 # Credit
 

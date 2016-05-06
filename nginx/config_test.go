@@ -2,12 +2,25 @@ package nginx
 
 import (
 	"encoding/base64"
+	"log"
 	"testing"
 
 	"github.com/30x/k8s-pods-ingress/ingress"
 
 	"k8s.io/kubernetes/pkg/api"
 )
+
+var config *ingress.Config
+
+func init() {
+	envConfig, err := ingress.ConfigFromEnv()
+
+	if err != nil {
+		log.Fatalf("Unable to get configuration from environment: %v", err)
+	}
+
+	config = envConfig
+}
 
 func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets []*api.Secret) {
 	cache := &ingress.Cache{
@@ -18,7 +31,7 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 	for _, pod := range pods {
 		cache.Pods[pod.Name] = &ingress.PodWithRoutes{
 			Pod:    pod,
-			Routes: ingress.GetRoutes(pod),
+			Routes: ingress.GetRoutes(config, pod),
 		}
 	}
 
@@ -26,7 +39,7 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 		cache.Secrets[secret.Namespace] = secret
 	}
 
-	actual := GetConf(cache)
+	actual := GetConf(config, cache)
 
 	if expected != actual {
 		t.Fatalf("Unexpected nginx.conf was generated (%s)\nExpected: %s\n\nActual: %s\n", desc, expected, actual)
@@ -36,8 +49,8 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 /*
 Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with an empty cache
 */
-func TestGetConfNoMicroservices(t *testing.T) {
-	conf := GetConf(&ingress.Cache{})
+func TestGetConfNoRoutablePods(t *testing.T) {
+	conf := GetConf(config, &ingress.Cache{})
 
 	if conf != DefaultNginxConf {
 		t.Fatal("The default nginx.conf should be returned for an empty cache")
@@ -80,8 +93,8 @@ http {
 	pod := api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com",
-				"publicPaths":  "80:/prod 3000:/test",
+				"routingHosts": "test.github.com",
+				"routingPaths": "80:/prod 3000:/test",
 			},
 			Name: "testing",
 		},
@@ -97,7 +110,7 @@ http {
 /*
 Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with multiple, single pod services
 */
-func TestGetConfMultipleMicroservices(t *testing.T) {
+func TestGetConfMultipleRoutableServices(t *testing.T) {
 	expectedConf := `
 events {
   worker_connections 1024;
@@ -136,8 +149,8 @@ http {
 		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-					"publicPaths":  "3000:/nodejs",
+					"routingHosts": "test.github.com",
+					"routingPaths": "3000:/nodejs",
 				},
 				Name: "testing",
 			},
@@ -149,8 +162,8 @@ http {
 		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
-					"trafficHosts": "prod.github.com",
-					"publicPaths":  "80:/",
+					"routingHosts": "prod.github.com",
+					"routingPaths": "80:/",
 				},
 				Name: "testing2",
 			},
@@ -167,7 +180,7 @@ http {
 /*
 Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with single, multiple pod services
 */
-func TestGetConfMultiplePodMicroservice(t *testing.T) {
+func TestGetConfMultiplePodRoutableServices(t *testing.T) {
 	expectedConf := `
 events {
   worker_connections 1024;
@@ -179,7 +192,7 @@ http {
   server_names_hash_bucket_size 64;
 
   # Upstream for / traffic on test.github.com
-  upstream microservice619897598 {
+  upstream upstream619897598 {
     # Pod testing
     server 10.244.1.16;
     # Pod testing2
@@ -194,8 +207,8 @@ http {
 
     location / {
       proxy_set_header Host $host;
-      # Upstream microservice619897598
-      proxy_pass http://microservice619897598;
+      # Upstream upstream619897598
+      proxy_pass http://upstream619897598;
     }
   }
 ` + DefaultNginxServerConf + `}
@@ -205,8 +218,8 @@ http {
 		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-					"publicPaths":  "80:/",
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
 				},
 				Name: "testing",
 			},
@@ -218,8 +231,8 @@ http {
 		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-					"publicPaths":  "80:/",
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
 				},
 				Name: "testing2",
 			},
@@ -231,8 +244,8 @@ http {
 		&api.Pod{
 			ObjectMeta: api.ObjectMeta{
 				Annotations: map[string]string{
-					"trafficHosts": "test.github.com",
-					"publicPaths":  "3000:/",
+					"routingHosts": "test.github.com",
+					"routingPaths": "3000:/",
 				},
 				Name: "testing3",
 			},
@@ -267,8 +280,8 @@ http {
 
     location / {
       proxy_set_header Host $host;
-      # Check the Ingress API Key (namespace: testing)
-      if ($http_x_ingress_api_key != '` + base64.StdEncoding.EncodeToString(apiKey) + `') {
+      # Check the Routing API Key (namespace: testing)
+      if ($http_x_routing_api_key != '` + base64.StdEncoding.EncodeToString(apiKey) + `') {
         return 403;
       }
       # Pod testing
@@ -281,8 +294,8 @@ http {
 	pod := api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
-				"trafficHosts": "test.github.com",
-				"publicPaths":  "80:/",
+				"routingHosts": "test.github.com",
+				"routingPaths": "80:/",
 			},
 			Name:      "testing",
 			Namespace: "testing",
@@ -294,7 +307,7 @@ http {
 	}
 	secret := api.Secret{
 		ObjectMeta: api.ObjectMeta{
-			Name:      ingress.KeyIngressSecretName,
+			Name:      config.APIKeySecret,
 			Namespace: "testing",
 		},
 		Data: map[string][]byte{

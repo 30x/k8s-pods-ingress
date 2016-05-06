@@ -2,14 +2,31 @@ package ingress
 
 import (
 	"k8s.io/kubernetes/pkg/api"
+	"k8s.io/kubernetes/pkg/labels"
 )
 
 /*
-Cache is the structure containing the ingress API Keys and the microservices pods cache
+Cache is the structure containing the ingress API Keys and the routable pods cache
 */
 type Cache struct {
 	Pods    map[string]*PodWithRoutes
 	Secrets map[string]*api.Secret
+}
+
+/*
+Config is the structure containing the configuration
+*/
+type Config struct {
+	// The secret name used to store the API Key for the namespace
+	APIKeySecret string
+	// The secret data field name to store the API Key for the namespace
+	APIKeySecretDataField string
+	// The name of the annotation used to find hosts to route
+	HostsAnnotation string
+	// The name of the annotation used to find paths to route
+	PathsAnnotation string
+	// The label selector used to identify routable objects
+	RoutableLabelSelector labels.Selector
 }
 
 /*

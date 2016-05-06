@@ -12,10 +12,10 @@ spec:
     metadata:
       labels:
         name: nodejs-k8s-env
-        microservice: "true"
+        routable: "true"
       annotations:
-        trafficHosts: "test.k8s.local"
-        publicPaths: "3000:/nodejs"
+        routingHosts: "test.k8s.local"
+        routingPaths: "3000:/nodejs"
     spec:
       containers:
       - name: nodejs-k8s-env

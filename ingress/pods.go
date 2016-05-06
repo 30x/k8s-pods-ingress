@@ -15,12 +15,6 @@ import (
 )
 
 const (
-	// KeyMicroserviceL is the label used to identify microservices
-	KeyMicroserviceL = "microservice"
-	// KeyPublicPathsA is the annotation used to identify the list of traffic paths associated with the microservice
-	KeyPublicPathsA = "publicPaths"
-	// KeyTrafficHostsA is the annotation used to identify the list of traffic hosts associated with the microservice
-	KeyTrafficHostsA    = "trafficHosts"
 	hostnameRegexStr    = "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
 	ipRegexStr          = "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
 	pathSegmentRegexStr = "^[A-Za-z0-9\\-._~!$&'()*+,;=:@]|%[0-9A-Fa-f]{2}$"
@@ -38,10 +32,6 @@ func (r *Route) String() string {
 	return r.Incoming.Host + r.Incoming.Path + " -> " + r.Outgoing.IP + ":" + r.Outgoing.Port
 }
 
-/*
-MicroserviceLabelSelector is the label selector to identify microservice pods.
-*/
-var MicroserviceLabelSelector labels.Selector
 var hostnameRegex *regexp.Regexp
 var ipRegex *regexp.Regexp
 var pathSegmentRegex *regexp.Regexp
@@ -57,15 +47,6 @@ func compileRegex(regexStr string) *regexp.Regexp {
 }
 
 func init() {
-	// Create the label selector for microservices
-	selector, err := labels.Parse("microservice = true")
-
-	if err != nil {
-		log.Fatalf("Failed to create label selector: %v.", err)
-	}
-
-	MicroserviceLabelSelector = selector
-
 	// Compile all regular expressions
 	hostnameRegex = compileRegex(hostnameRegexStr)
 	ipRegex = compileRegex(ipRegexStr)
@@ -73,13 +54,13 @@ func init() {
 }
 
 /*
-GetMicroservicePodList returns the microservices pods list.
+GetRoutablePodList returns the routable pods list.
 */
-func GetMicroservicePodList(kubeClient *client.Client) (*api.PodList, error) {
+func GetRoutablePodList(config *Config, kubeClient *client.Client) (*api.PodList, error) {
 	// Query the initial list of Pods
 	podList, err := kubeClient.Pods(api.NamespaceAll).List(api.ListOptions{
 		FieldSelector: fields.Everything(),
-		LabelSelector: MicroserviceLabelSelector,
+		LabelSelector: config.RoutableLabelSelector,
 	})
 
 	if err != nil {
@@ -92,7 +73,7 @@ func GetMicroservicePodList(kubeClient *client.Client) (*api.PodList, error) {
 /*
 GetRoutes returns an array of routes defined within the provided pod
 */
-func GetRoutes(pod *api.Pod) []*Route {
+func GetRoutes(config *Config, pod *api.Pod) []*Route {
 	var routes []*Route
 
 	// Do not process pods that are not running
@@ -100,9 +81,9 @@ func GetRoutes(pod *api.Pod) []*Route {
 		var hosts []string
 		var pathPairs []*pathPair
 
-		annotation, ok := pod.Annotations[KeyTrafficHostsA]
+		annotation, ok := pod.Annotations[config.HostsAnnotation]
 
-		// This pod does not have the trafficHosts annotation set
+		// This pod does not have the hosts annotation set
 		if ok {
 			// Process the routing hosts
 			for _, host := range strings.Split(annotation, " ") {
@@ -112,7 +93,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 					valid = ipRegex.MatchString(host)
 
 					if !valid {
-						log.Printf("    Pod (%s) routing issue: trafficHost (%s) is not a valid hostname/ip\n", pod.Name, host)
+						log.Printf("    Pod (%s) routing issue: %s (%s) is not a valid hostname/ip\n", config.HostsAnnotation, pod.Name, host)
 
 						continue
 					}
@@ -124,7 +105,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 
 			// Do not process the routing paths if there are no valid hosts
 			if len(hosts) > 0 {
-				annotation, ok = pod.Annotations[KeyPublicPathsA]
+				annotation, ok = pod.Annotations[config.PathsAnnotation]
 
 				if ok {
 					for _, publicPath := range strings.Split(annotation, " ") {
@@ -139,7 +120,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 							if err == nil && port > 0 && port < 65536 {
 								cPathPair.Port = pathParts[0]
 							} else {
-								log.Printf("    Pod (%s) routing issue: publicPath port (%s) is not valid\n", pod.Name, pathParts[0])
+								log.Printf("    Pod (%s) routing issue: %s port (%s) is not valid\n", config.PathsAnnotation, pod.Name, pathParts[0])
 							}
 
 							// Validate the path (when necessary)
@@ -173,7 +154,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 						}
 					}
 				} else {
-					log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, KeyPublicPathsA)
+					log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, config.PathsAnnotation)
 				}
 			}
 
@@ -195,7 +176,7 @@ func GetRoutes(pod *api.Pod) []*Route {
 				}
 			}
 		} else {
-			log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, KeyTrafficHostsA)
+			log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, config.HostsAnnotation)
 		}
 	} else {
 		log.Printf("    Pod (%s) is not routable: Not running (%s)\n", pod.Name, pod.Status.Phase)
@@ -207,11 +188,10 @@ func GetRoutes(pod *api.Pod) []*Route {
 /*
 UpdatePodCacheForEvents updates the cache based on the pod events and returns if the changes warrant an nginx restart.
 */
-func UpdatePodCacheForEvents(cache map[string]*PodWithRoutes, events []watch.Event) bool {
+func UpdatePodCacheForEvents(config *Config, cache map[string]*PodWithRoutes, events []watch.Event) bool {
 	needsRestart := false
 
 	for _, event := range events {
-		// Coerce the event target to a Pod
 		pod := event.Object.(*api.Pod)
 
 		log.Printf("  Pod (%s) event: %s\n", pod.Name, event.Type)
@@ -223,7 +203,7 @@ func UpdatePodCacheForEvents(cache map[string]*PodWithRoutes, events []watch.Eve
 			// pod being routable but it's here just in case.
 			cache[pod.Name] = &PodWithRoutes{
 				Pod:    pod,
-				Routes: GetRoutes(pod),
+				Routes: GetRoutes(config, pod),
 			}
 
 			needsRestart = len(cache[pod.Name].Routes) > 0
@@ -233,36 +213,27 @@ func UpdatePodCacheForEvents(cache map[string]*PodWithRoutes, events []watch.Eve
 			delete(cache, pod.Name)
 
 		case watch.Modified:
-			// Check if the pod still has the microservice label
-			if val, ok := pod.Labels[KeyMicroserviceL]; ok {
-				if val != "true" {
-					log.Println("    Pod is no longer a microservice")
+			podLabels := labels.Set(pod.Labels)
 
-					// Pod no longer the `microservices` label set to true
-					// so we need to remove it from the cache
+			// Check if the pod still has the routable label
+			if config.RoutableLabelSelector.Matches(podLabels) {
+				cached, ok := cache[pod.Name]
+
+				// If anything routing related changes, trigger a server restart
+				if !ok ||
+					pod.Annotations[config.HostsAnnotation] != cached.Pod.Annotations[config.HostsAnnotation] ||
+					pod.Annotations[config.PathsAnnotation] != cached.Pod.Annotations[config.PathsAnnotation] ||
+					pod.Status.Phase != cached.Pod.Status.Phase {
 					needsRestart = true
-					delete(cache, pod.Name)
-				} else {
-					cached, ok := cache[pod.Name]
-
-					// If anything routing related changes, trigger a server restart
-					if !ok ||
-						pod.Annotations[KeyMicroserviceL] != cached.Pod.Annotations[KeyMicroserviceL] ||
-						pod.Annotations[KeyTrafficHostsA] != cached.Pod.Annotations[KeyTrafficHostsA] ||
-						pod.Annotations[KeyPublicPathsA] != cached.Pod.Annotations[KeyPublicPathsA] ||
-						pod.Status.Phase != cached.Pod.Status.Phase {
-						needsRestart = true
-					}
-
-					// Add/Update the cache entry
-					cache[pod.Name].Pod = pod
-					cache[pod.Name].Routes = GetRoutes(pod)
 				}
-			} else {
-				log.Println("    Pod is no longer a microservice")
 
-				// Pod no longer has the `microservices` label so we need to
-				// remove it from the cache
+				// Add/Update the cache entry
+				cache[pod.Name].Pod = pod
+				cache[pod.Name].Routes = GetRoutes(config, pod)
+			} else {
+				log.Println("    Pod is no longer routable")
+
+				// Pod no longer matches the routable label selector so we need to remove it from the cache
 				needsRestart = true
 				delete(cache, pod.Name)
 			}
