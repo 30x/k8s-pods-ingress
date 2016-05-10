@@ -82,7 +82,9 @@ multiple namespaces to consume traffic for the same host and path combination, t
 work fine in this situation, the router's API Key is namespace specific and the first seen API Key is the one that is
 used.
 
-# Example
+# Examples
+
+## An Ingress Controller
 
 Let's assume you've already deployed the router controller.  _(If you haven't, feel free to look at the
 [Building and Running](#building-and-running) section of the documentation.)_  When the router starts up, nginx is
@@ -271,32 +273,7 @@ hitting each individual Pod.
 
 I hope this example gave you a better idea of how this all works.  If not, let us know how to make it better.
 
-# Building and Running
-
-If you're testing this outside of Kubernetes, you can just use `go build` followed by
-`KUBE_HOST=... ./k8s-pods-ingress`.  If you're building this to run on Kubernetes, you'll need to do the following:
-
-* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
-* `docker build ...`
-* `docker tag ...`
-* `docker push ...`
-
-_(The `...` are there because your Docker comands will likely be different than mine or someone else's)_  We have an
-example `rc.yaml` for deploying the k8s-pods-ingress to Kubernetes.  Here is how I test locally:
-
-* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
-* `docker build -t k8s-pods-ingress .`
-* `docker tag -f k8s-pods-ingress 192.168.64.1:5000/k8s-pods-ingress`
-* `docker push 192.168.64.1:5000/k8s-pods-ingress`
-* `kubectl create -f rc.yaml`
-
-**Note:** This router is written to be ran within Kubernetes but for testing purposes, it can be ran outside of
-Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to the
-Kubernetes API.  _(Example: `http://192.168.64.2:8080`)_  When ran outside the container, nginx itself will not be
-started and its configuration file will not be written to disk, only printed to stdout.  This might change in the future
-but for now, this support is only as a convenience.
-
-# Multipurpose Deployments
+## Multipurpose Deployments
 
 As mentioned above, this project started out as an ingress with the sole purpose of routing traffic from the internet
 to Pods within the Kubernetes cluster.  One of the use cases we have at work is we need an general ingress but we also
@@ -305,26 +282,22 @@ private...router.  Here is an example deployment file where you use the configur
 purposes:
 
 ``` yaml
-apiVersion: v1
-kind: ReplicationController
+apiVersion: extensions/v1beta1
+kind: DaemonSet
 metadata:
-  name: k8s-pods-ingress
+  name: k8s-pods-router
   labels:
-    app: k8s-pods-ingress
+    app: k8s-pods-router
 spec:
-  replicas: 1
-  selector:
-    app: k8s-pods-ingress
   template:
     metadata:
       labels:
-        app: k8s-pods-ingress
+        app: k8s-pods-router
     spec:
       containers:
-      # This is the ingress or public facing router
       - image: whitlockjc/k8s-pods-ingress:v0
         imagePullPolicy: Always
-        name: k8s-pods-ingress
+        name: k8s-pods-router-public
         ports:
           - containerPort: 80
             hostPort: 80
@@ -344,14 +317,13 @@ spec:
             value: publicHosts
           - name: PATHS_ANNOTATION
             value: publicPaths
-      # This is the internal or private facing router
       - image: whitlockjc/k8s-pods-ingress:v0
         imagePullPolicy: Always
-        name: k8s-pods-ingress
+        name: k8s-pods-router-private
         ports:
           - containerPort: 80
-            # We might be able to not expose a host port but if we do, we should lock it down
-            hostPort: 8080
+            # We should probably avoid using host port and if needed, at least lock it down from external access
+            hostPort: 81
         env:
           - name: POD_NAME
             valueFrom:
@@ -417,6 +389,32 @@ only that, if I were to `curl http://test.k8s.com/internal`, it also would not g
 Now I realize this is a somewhat convoluted example but the purpose was to show how we could use the same code base to
 serve different roles using configuration alone.  Thet network isolation and security required to do this properly is
 outside the scope of this example.
+
+# Building and Running
+
+If you're testing this outside of Kubernetes, you can just use `go build` followed by
+`KUBE_HOST=... ./k8s-pods-ingress`.  If you're building this to run on Kubernetes, you'll need to do the following:
+
+* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
+* `docker build ...`
+* `docker tag ...`
+* `docker push ...`
+
+_(The `...` are there because your Docker comands will likely be different than mine or someone else's)_  We have an
+example DaemonSet for deploying the k8s-pods-ingress as an ingress controller to Kubernetes located at
+`examples/ingress-daemonset.yaml`.  Here is how I test locally:
+
+* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
+* `docker build -t k8s-pods-ingress .`
+* `docker tag -f k8s-pods-ingress 192.168.64.1:5000/k8s-pods-ingress`
+* `docker push 192.168.64.1:5000/k8s-pods-ingress`
+* `kubectl create -f examples/ingress-daemonset.yaml`
+
+**Note:** This router is written to be ran within Kubernetes but for testing purposes, it can be ran outside of
+Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to the
+Kubernetes API.  _(Example: `http://192.168.64.2:8080`)_  When ran outside the container, nginx itself will not be
+started and its configuration file will not be written to disk, only printed to stdout.  This might change in the future
+but for now, this support is only as a convenience.
 
 # Credit
 

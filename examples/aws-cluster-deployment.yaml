@@ -1,0 +1,78 @@
+####
+# Deployes the ingress controller as a daemon set, then creates the external ELB to serve it traffic
+###
+apiVersion: extensions/v1beta1
+kind: DaemonSet
+metadata:
+  name: k8s-pods-router
+  labels:
+    app: k8s-pods-router
+spec:
+  template:
+    metadata:
+      labels:
+        app: k8s-pods-router
+      annotations: 
+        projectcalico.org/policy: "allow tcp from cidr 192.168.0.0/16; allow tcp from cidr 10.129.0.0/16"
+    spec:
+      containers:
+      - image: registry-1.docker.io/whitlockjc/k8s-pods-ingress:v0
+        imagePullPolicy: Always
+        name: k8s-pods-router-public
+        ports:
+          - containerPort: 80
+            hostPort: 80
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          # Use the configuration to use the public/private paradigm (public version)
+          - name: API_SECRET_LOCATION
+            value: routing:public-api-key
+          - name: HOSTS_ANNOTATION
+            value: publicHosts
+          - name: PATHS_ANNOTATION
+            value: publicPaths
+      - image: registry-1.docker.io/whitlockjc/k8s-pods-ingress:v0
+        imagePullPolicy: Always
+        name: k8s-pods-router-private
+        ports:
+          - containerPort: 80
+            # We should probably avoid using host port and if needed, at least lock it down from external access
+            hostPort: 81
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          # Use the configuration to use the public/private paradigm (private version)
+          - name: API_SECRET_LOCATION
+            value: routing:private-api-key
+          - name: HOSTS_ANNOTATION
+            value: privateHosts
+          - name: PATHS_ANNOTATION
+            value: privatePaths
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k8s-pods-router-lb
+spec:
+  type: LoadBalancer
+  selector:
+    app: k8s-pods-router-public
+  ports:
+  - name: http
+    protocol: TCP
+    port: 80
+    targetPort: 80

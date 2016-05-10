@@ -1,6 +1,3 @@
-####
-# Deployes the ingress controller as a daemon set, then creates the external ELB to serve it traffic
-###
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
@@ -11,16 +8,15 @@ spec:
   template:
     metadata:
       labels:
-        app: k8s-pods-ingress 
-      annotations: 
-        projectcalico.org/policy: "allow tcp from cidr 192.168.0.0/16; allow tcp from cidr 10.129.0.0/16"
+        app: k8s-pods-ingress
     spec:
       containers:
-      - image: registry-1.docker.io/whitlockjc/k8s-pods-ingress:v0
+      - image: whitlockjc/k8s-pods-ingress:v0
         imagePullPolicy: Always
         name: k8s-pods-ingress
         ports:
           - containerPort: 80
+            hostPort: 80
         env:
           - name: POD_NAME
             valueFrom:
@@ -30,17 +26,3 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: k8s-pods-ingress-lb
-spec:
-  type: LoadBalancer
-  selector:
-    app: k8s-pods-ingress
-  ports:
-  - name: http
-    protocol: TCP
-    port: 80
-    targetPort: 80
