@@ -50,6 +50,7 @@ _(The format for this key is `{SECRET_NAME}:{SECRET_DATA_FIELD_NAME}`.  Default:
 * `HOSTS_ANNOTATION`: This is the annotation name used to store the space delimited array of hosts used for routing to
 your Pods _(Default: `routingHosts`)_
 * `PATHS_ANNOTATION`: This is the annotation name used to store the space delimited array of routing path configurations
+* `PORT`: This is the port that nginx will listen on _(Default: `80`)_
 for your Pods _(Default: `routingPaths`)_
 * `ROUTING_LABEL_SELECTOR`: This is the [label selector](http://kubernetes.io/docs/user-guide/labels/#label-selectors)
 used to identify Pods that are marked for routing _(Default: `routable=true`)_
@@ -321,7 +322,7 @@ spec:
         imagePullPolicy: Always
         name: k8s-pods-router-private
         ports:
-          - containerPort: 80
+          - containerPort: 81
             # We should probably avoid using host port and if needed, at least lock it down from external access
             hostPort: 81
         env:
@@ -340,6 +341,9 @@ spec:
             value: privateHosts
           - name: PATHS_ANNOTATION
             value: privatePaths
+          # Since we cannot have two containers listening on the same port, use a different port for the private router
+          - name: PORT
+            value: "81"
 ```
 
 Based on this deployment, we have an ingress that serves `publicHosts` and `publicPaths` combinations and an internal

@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	confTmpl = `
+	nginxConfTmpl = `
 events {
   worker_connections 1024;
 }
@@ -30,7 +30,7 @@ http {
 {{end}}  }
 {{end}}{{range $host, $server := .Hosts}}
   server {
-    listen 80;
+    listen {{$.Port}};
     server_name {{$host}};
 {{range $path, $location := $server.Locations}}
     location {{$path}} {
@@ -43,20 +43,18 @@ http {
       proxy_pass http://{{$location.Server.Target}};
     }
 {{end}}  }
-{{end}}` + DefaultNginxServerConf + `}
+{{end}}` + defaultNginxServerConfTmpl + `}
 `
-	// DefaultNginxConf is the default nginx.conf content
-	DefaultNginxConf = `
+	defaultNginxConfTmpl = `
 # A very simple nginx configuration file that forces nginx to start as a daemon.
 events {}
-http {` + DefaultNginxServerConf + `}
+http {` + defaultNginxServerConfTmpl + `}
 daemon on;
 `
-	// DefaultNginxServerConf is the default nginx server configuration
-	DefaultNginxServerConf = `
+	defaultNginxServerConfTmpl = `
   # Default server that will just close the connection as if there was no server available
   server {
-    listen 80 default_server;
+    listen {{.Port}} default_server;
     return 444;
   }
 `
@@ -65,7 +63,9 @@ daemon on;
 )
 
 // Cannot declare as a constant
-var tmpl *template.Template
+var nginxConfTemplate *template.Template
+var defaultNginxConfTemplate *template.Template
+var defaultNginxConf string
 
 type hostT struct {
 	Locations map[string]*locationT
@@ -88,6 +88,7 @@ type serversT []*serverT
 
 type templateDataT struct {
 	Hosts     map[string]*hostT
+	Port      int
 	Upstreams map[string]*upstreamT
 }
 
@@ -117,14 +118,23 @@ func hash(s string) uint32 {
 }
 
 func init() {
+	// Parse the default nginx.conf template
+	t, err := template.New("nginx-default").Parse(defaultNginxConfTmpl)
+
+	if err != nil {
+		log.Fatalf("Failed to render default nginx.conf template: %v.", err)
+	}
+
+	defaultNginxConfTemplate = t
+
 	// Parse the nginx.conf template
-	t, err := template.New("nginx").Parse(confTmpl)
+	t2, err := template.New("nginx").Parse(nginxConfTmpl)
 
 	if err != nil {
 		log.Fatalf("Failed to render nginx.conf template: %v.", err)
 	}
 
-	tmpl = t
+	nginxConfTemplate = t2
 }
 
 /*
@@ -133,11 +143,12 @@ GetConf takes the ingress cache and returns a generated nginx configuration
 func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 	// Quick out if there are no pods in the cache
 	if len(cache.Pods) == 0 {
-		return DefaultNginxConf
+		return GetDefaultConf(config)
 	}
 
 	tmplData := templateDataT{
 		Hosts:     make(map[string]*hostT),
+		Port:      config.Port,
 		Upstreams: make(map[string]*upstreamT),
 	}
 
@@ -236,9 +247,26 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 	var doc bytes.Buffer
 
 	// Useful for debugging
-	if err := tmpl.Execute(&doc, tmplData); err != nil {
+	if err := nginxConfTemplate.Execute(&doc, tmplData); err != nil {
 		log.Fatalf("Failed to write template %v", err)
 	}
 
 	return doc.String()
+}
+
+/*
+GetDefaultConf returns the default nginx.conf
+*/
+func GetDefaultConf(config *ingress.Config) string {
+	if defaultNginxConf == "" {
+		var doc bytes.Buffer
+
+		if err := defaultNginxConfTemplate.Execute(&doc, config); err != nil {
+			log.Fatalf("Failed to write template %v", err)
+		} else {
+			defaultNginxConf = doc.String()
+		}
+	}
+
+	return defaultNginxConf
 }

@@ -54,7 +54,7 @@ func initController(config *ingress.Config, kubeClient *client.Client) (*ingress
 	log.Printf("  Secrets found: %d", len(secrets.Items))
 
 	// Generate the nginx configuration and restart nginx
-	nginx.StartServer(nginx.GetConf(config, cache))
+	nginx.RestartServer(nginx.GetConf(config, cache), true)
 
 	// Get the list options so we can create the watch
 	podWatchOptions := api.ListOptions{
@@ -111,7 +111,7 @@ func main() {
 	}
 
 	// Start nginx with the default configuration to start nginx as a daemon
-	nginx.StartServer("")
+	nginx.StartServer(nginx.GetDefaultConf(config))
 
 	// Create the initial cache and watcher
 	cache, podWatcher, secretWatcher := initController(config, kubeClient)
@@ -187,7 +187,7 @@ func main() {
 				log.Println("  Requires nginx restart: yes")
 
 				// Restart nginx
-				nginx.StartServer(nginx.GetConf(config, cache))
+				nginx.RestartServer(nginx.GetConf(config, cache), false)
 			} else {
 				log.Println("  Requires nginx restart: no")
 			}

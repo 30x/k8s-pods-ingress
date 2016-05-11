@@ -37,7 +37,7 @@ spec:
         imagePullPolicy: Always
         name: k8s-pods-router-private
         ports:
-          - containerPort: 80
+          - containerPort: 81
             # We should probably avoid using host port and if needed, at least lock it down from external access
             hostPort: 81
         env:
@@ -56,3 +56,6 @@ spec:
             value: privateHosts
           - name: PATHS_ANNOTATION
             value: privatePaths
+          # Since we cannot have two containers listening on the same port, use a different port for the private router
+          - name: PORT
+            value: "81"

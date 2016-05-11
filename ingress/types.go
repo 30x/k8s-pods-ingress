@@ -25,6 +25,8 @@ type Config struct {
 	HostsAnnotation string
 	// The name of the annotation used to find paths to route
 	PathsAnnotation string
+	// The port that nginx will listen on
+	Port int
 	// The label selector used to identify routable objects
 	RoutableLabelSelector labels.Selector
 }

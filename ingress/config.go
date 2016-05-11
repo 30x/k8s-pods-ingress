@@ -3,7 +3,10 @@ package ingress
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+
+	"github.com/30x/k8s-pods-ingress/utils"
 
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/util/validation"
@@ -20,6 +23,8 @@ const (
 	DefaultHostsAnnotation = "routingHosts"
 	// DefaultPathsAnnotation is the default value for the EnvVarHostsAnnotation (routingPaths)
 	DefaultPathsAnnotation = "routingPaths"
+	// DefaultPort is the default value for the EnvVarPort (80)
+	DefaultPort = 80
 	// DefaultRoutableLabelSelector is the default value for EnvVarRoutableLabelSelector (routable=true)
 	DefaultRoutableLabelSelector = "routable=true"
 	// EnvVarAPIKeySecretLocation Environment variable name for providing the location of the secret (name:field) to identify API Key secrets
@@ -28,6 +33,8 @@ const (
 	EnvVarHostsAnnotation = "HOSTS_ANNOTATION"
 	// EnvVarPathsAnnotation Environment variable name for providing the the name of the paths annotation
 	EnvVarPathsAnnotation = "PATHS_ANNOTATION"
+	// EnvVarPort Environment variable for providing the port nginx should listen on
+	EnvVarPort = "PORT"
 	// EnvVarRoutableLabelSelector Environment variable name for providing the label selector for identifying routable objects
 	EnvVarRoutableLabelSelector = "ROUTABLE_LABEL_SELECTOR"
 	// ErrMsgTmplInvalidAnnotationName is the error message template for an invalid annotation name
@@ -36,6 +43,8 @@ const (
 	ErrMsgTmplInvalidAPIKeySecretLocation = "%s is not in the format of {API_KEY_SECRET_NAME}:{API_KEY_SECRET_DATA_FIELD_NAME}"
 	// ErrMsgTmplInvalidLabelSelector is the error message template for an invalid label selector
 	ErrMsgTmplInvalidLabelSelector = "%s has an invalid label selector: %s\n"
+	// ErrMsgTmplInvalidPort is the error message template for an invalid port
+	ErrMsgTmplInvalidPort = "%s is an invalid port: %s\n"
 )
 
 /*
@@ -79,6 +88,20 @@ func ConfigFromEnv() (*Config, error) {
 		return nil, fmt.Errorf(ErrMsgTmplInvalidAnnotationName, EnvVarHostsAnnotation, config.HostsAnnotation)
 	} else if !validation.IsQualifiedName(strings.ToLower(config.PathsAnnotation)) {
 		return nil, fmt.Errorf(ErrMsgTmplInvalidAnnotationName, EnvVarPathsAnnotation, config.PathsAnnotation)
+	}
+
+	portStr := os.Getenv(EnvVarPort)
+
+	if portStr == "" {
+		config.Port = DefaultPort
+	} else {
+		port, err := strconv.Atoi(portStr)
+
+		if err != nil || !utils.IsValidPort(port) {
+			return nil, fmt.Errorf(ErrMsgTmplInvalidPort, EnvVarPort, portStr)
+		}
+
+		config.Port = port
 	}
 
 	routableLabelSelector := os.Getenv(EnvVarRoutableLabelSelector)

@@ -3,6 +3,7 @@ package ingress
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"testing"
 
 	"k8s.io/kubernetes/pkg/labels"
@@ -40,6 +41,7 @@ func resetEnv(t *testing.T) {
 	unsetEnv(EnvVarAPIKeySecretLocation)
 	unsetEnv(EnvVarHostsAnnotation)
 	unsetEnv(EnvVarPathsAnnotation)
+	unsetEnv(EnvVarPort)
 	unsetEnv(EnvVarRoutableLabelSelector)
 }
 
@@ -64,6 +66,8 @@ func validateConfig(t *testing.T, desc string, expected *Config, actual *Config)
 		t.Fatalf(makeError("HostsAnnotation", expected.HostsAnnotation, actual.HostsAnnotation))
 	} else if expected.PathsAnnotation != actual.PathsAnnotation {
 		t.Fatalf(makeError("PathsAnnotation", expected.PathsAnnotation, actual.PathsAnnotation))
+	} else if expected.Port != actual.Port {
+		t.Fatalf(makeError("Port", strconv.Itoa(expected.Port), strconv.Itoa(actual.Port)))
 	} else if expected.RoutableLabelSelector.String() != actual.RoutableLabelSelector.String() {
 		t.Fatalf(makeError("RoutableLabelSelector", expected.RoutableLabelSelector.String(), actual.RoutableLabelSelector.String()))
 	}
@@ -78,6 +82,7 @@ func TestConfigFromEnvDefaultConfig(t *testing.T) {
 		APIKeySecretDataField: DefaultAPIKeySecretDataField,
 		HostsAnnotation:       DefaultHostsAnnotation,
 		PathsAnnotation:       DefaultPathsAnnotation,
+		Port:                  DefaultPort,
 		RoutableLabelSelector: getLabelSelector(t, DefaultRoutableLabelSelector),
 	})
 }
@@ -118,6 +123,18 @@ func TestConfigFromEnvInvalidEnv(t *testing.T) {
 
 	validateInvalidConfig(fmt.Sprintf(ErrMsgTmplInvalidAnnotationName, EnvVarPathsAnnotation, invalidName))
 
+	// Invalid port (not a number)
+	setEnv(t, EnvVarPort, invalidName)
+
+	validateInvalidConfig(fmt.Sprintf(ErrMsgTmplInvalidPort, EnvVarPort, invalidName))
+
+	// Invalid port (not a valid port)
+	invalidPort := "-1"
+
+	setEnv(t, EnvVarPort, invalidPort)
+
+	validateInvalidConfig(fmt.Sprintf(ErrMsgTmplInvalidPort, EnvVarPort, invalidPort))
+
 	// Invalid routable label selector
 	setEnv(t, EnvVarRoutableLabelSelector, invalidName)
 
@@ -132,6 +149,7 @@ func TestConfigFromEnvValidConfig(t *testing.T) {
 
 	hostsAnnotation := "trafficHosts"
 	pathsAnnotation := "publicPaths"
+	port := "81"
 	routableLabelSelector := "route-me=true"
 	secretName := "custom"
 	secretDataField := "another-custom"
@@ -139,6 +157,7 @@ func TestConfigFromEnvValidConfig(t *testing.T) {
 	setEnv(t, EnvVarAPIKeySecretLocation, secretName+":"+secretDataField)
 	setEnv(t, EnvVarHostsAnnotation, hostsAnnotation)
 	setEnv(t, EnvVarPathsAnnotation, pathsAnnotation)
+	setEnv(t, EnvVarPort, port)
 	setEnv(t, EnvVarRoutableLabelSelector, routableLabelSelector)
 
 	validateConfig(t, "default configuration", getConfig(t), &Config{
@@ -146,6 +165,7 @@ func TestConfigFromEnvValidConfig(t *testing.T) {
 		APIKeySecretDataField: secretDataField,
 		HostsAnnotation:       hostsAnnotation,
 		PathsAnnotation:       pathsAnnotation,
+		Port:                  81,
 		RoutableLabelSelector: getLabelSelector(t, routableLabelSelector),
 	})
 }
