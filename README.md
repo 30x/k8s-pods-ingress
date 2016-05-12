@@ -312,7 +312,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           # Use the configuration to use the public/private paradigm (public version)
-          - name: API_SECRET_LOCATION
+          - name: API_KEY_SECRET_LOCATION
             value: routing:public-api-key
           - name: HOSTS_ANNOTATION
             value: publicHosts
@@ -335,7 +335,7 @@ spec:
               fieldRef:
                 fieldPath: metadata.namespace
           # Use the configuration to use the public/private paradigm (private version)
-          - name: API_SECRET_LOCATION
+          - name: API_KEY_SECRET_LOCATION
             value: routing:private-api-key
           - name: HOSTS_ANNOTATION
             value: privateHosts
