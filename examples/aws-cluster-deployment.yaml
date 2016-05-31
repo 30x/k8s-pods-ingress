@@ -74,7 +74,7 @@ metadata:
 spec:
   type: LoadBalancer
   selector:
-    app: k8s-public-router
+    app: k8s-routers
   ports:
   - name: http
     protocol: TCP
