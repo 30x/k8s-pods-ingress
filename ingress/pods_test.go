@@ -202,7 +202,7 @@ func TestGetRoutesValidPods(t *testing.T) {
 	host2 := "www.github.com"
 	ip := "10.244.1.17"
 	path1 := "/"
-	path2 := "/admin"
+	path2 := "/admin/"
 	port1 := "3000"
 	port2 := "3001"
 

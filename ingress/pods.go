@@ -130,7 +130,7 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 
 								for i, pathSegment := range pathSegments {
 									// Skip the first and last entry
-									if (i == 0 || i == len(pathParts)-1) && pathSegment == "" {
+									if (i == 0 || i == len(pathSegments)-1) && pathSegment == "" {
 										continue
 									} else if !pathSegmentRegex.MatchString(pathSegment) {
 										log.Printf("    Pod (%s) routing issue: publicPath path (%s) is not a valid\n", pod.Name, pathParts[0])
