@@ -103,6 +103,16 @@ func main() {
 		log.Fatalf("Invalid configuration: %v.", err)
 	}
 
+	// Print the configuration
+	log.Println("  Using configuration:")
+	log.Printf("    API Key Secret Name: %s\n", config.APIKeySecret)
+	log.Printf("    API Key Secret Data Field: %s\n", config.APIKeySecretDataField)
+	log.Printf("    Hosts Annotation: %s\n", config.HostsAnnotation)
+	log.Printf("    Paths Annotation: %s\n", config.PathsAnnotation)
+	log.Printf("    Port (nginx): %d\n", config.Port)
+	log.Printf("    Routable Label Selector: %s\n", config.RoutableLabelSelector)
+	log.Println("")
+
 	// Create the Kubernetes Client
 	kubeClient, err := kubernetes.GetClient()
 
