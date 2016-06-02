@@ -45,6 +45,7 @@ something we support in the future.)_
 
 All of the touch points for this router are configurable via environment variables:
 
+* `API_KEY_HEADER`: This is the header name used by nginx to identify the API Key used _(Default: `X-ROUTING-API-KEY`)_
 * `API_KEY_SECRET_LOCATION`: This is the location of the optional API Key to use to secure communication to your Pods.
 _(The format for this key is `{SECRET_NAME}:{SECRET_DATA_FIELD_NAME}`.  Default: `routing:api-key`)_
 * `HOSTS_ANNOTATION`: This is the annotation name used to store the space delimited array of hosts used for routing to

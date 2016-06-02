@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log"
+	"regexp"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/30x/k8s-pods-ingress/ingress"
@@ -38,7 +40,7 @@ http {
     location {{$path}} {
       proxy_set_header Host $host;
       {{if ne $location.Secret ""}}# Check the Routing API Key (namespace: {{$location.Namespace}})
-      if ($http_x_routing_api_key != '{{$location.Secret}}') {
+      if ($http_{{$.APIKeyHeader}} != '{{$location.Secret}}') {
         return 403;
       }
       {{end}}{{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.Pod.Name}} (namespace: {{$location.Server.Pod.Namespace}}){{end}}
@@ -65,9 +67,10 @@ daemon on;
 )
 
 // Cannot declare as a constant
-var nginxConfTemplate *template.Template
-var defaultNginxConfTemplate *template.Template
 var defaultNginxConf string
+var defaultNginxConfTemplate *template.Template
+var nginxApiKeyHeader string
+var nginxConfTemplate *template.Template
 
 type hostT struct {
 	Locations map[string]*locationT
@@ -89,9 +92,10 @@ type serverT struct {
 type serversT []*serverT
 
 type templateDataT struct {
-	Hosts     map[string]*hostT
-	Port      int
-	Upstreams map[string]*upstreamT
+	APIKeyHeader string
+	Hosts        map[string]*hostT
+	Port         int
+	Upstreams    map[string]*upstreamT
 }
 
 type upstreamT struct {
@@ -117,6 +121,13 @@ func hash(s string) uint32 {
 	h := fnv.New32a()
 	h.Write([]byte(s))
 	return h.Sum32()
+}
+
+func convertAPIKeyHeaderForNginx(config *ingress.Config) {
+	if nginxApiKeyHeader == "" {
+		// Convert the API Key header to nginx
+		nginxApiKeyHeader = strings.ToLower(regexp.MustCompile("[^A-Za-z0-9]").ReplaceAllString(config.APIKeyHeader, "_"))
+	}
 }
 
 func init() {
@@ -148,10 +159,14 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 		return GetDefaultConf(config)
 	}
 
+	// Make sure we've converted the API Key to nginx format
+	convertAPIKeyHeaderForNginx(config)
+
 	tmplData := templateDataT{
-		Hosts:     make(map[string]*hostT),
-		Port:      config.Port,
-		Upstreams: make(map[string]*upstreamT),
+		APIKeyHeader: nginxApiKeyHeader,
+		Hosts:        make(map[string]*hostT),
+		Port:         config.Port,
+		Upstreams:    make(map[string]*upstreamT),
 	}
 
 	// Process the pods to populate the nginx configuration data structure
@@ -260,6 +275,9 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 GetDefaultConf returns the default nginx.conf
 */
 func GetDefaultConf(config *ingress.Config) string {
+	// Make sure we've converted the API Key to nginx format
+	convertAPIKeyHeaderForNginx(config)
+
 	if defaultNginxConf == "" {
 		var doc bytes.Buffer
 

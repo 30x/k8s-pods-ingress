@@ -48,6 +48,8 @@ func resetConf() {
 	defaultNginxConf = ""
 	// Change the config port
 	config.Port = 80
+	// Reset the cached API Key header (At runtime, we cache the results because they will never change)
+	nginxApiKeyHeader = ""
 }
 
 func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets []*api.Secret) {
@@ -392,7 +394,7 @@ http {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with single pod and multiple paths
+Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with API Key
 */
 func TestGetConfWithAPIKey(t *testing.T) {
 	apiKey := []byte("Updated-API-Key")
@@ -448,4 +450,70 @@ http {
 	}
 
 	validateConf(t, "pod with API Key", expectedConf, []*api.Pod{&pod}, []*api.Secret{&secret})
+}
+
+/*
+Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with custom API Key header
+*/
+func TestGetConfWithCustomAPIKeyHeader(t *testing.T) {
+	resetConf()
+
+	// Change the API Key Header
+	config.APIKeyHeader = "X-SOMETHING-CUSTOM_API*KEY"
+
+	apiKey := []byte("Updated-API-Key")
+	expectedConf := `
+events {
+  worker_connections 1024;
+}
+http {
+  # http://nginx.org/en/docs/http/ngx_http_core_module.html
+  types_hash_max_size 2048;
+  server_names_hash_max_size 512;
+  server_names_hash_bucket_size 64;
+
+  server {
+    listen 80;
+    server_name test.github.com;
+
+    location / {
+      proxy_set_header Host $host;
+      # Check the Routing API Key (namespace: testing)
+      if ($http_x_something_custom_api_key != '` + base64.StdEncoding.EncodeToString(apiKey) + `') {
+        return 403;
+      }
+      # Pod testing (namespace: testing)
+      proxy_pass http://10.244.1.16;
+    }
+  }
+` + getDefaultServerConf(config) + `}
+`
+
+	pod := api.Pod{
+		ObjectMeta: api.ObjectMeta{
+			Annotations: map[string]string{
+				"routingHosts": "test.github.com",
+				"routingPaths": "80:/",
+			},
+			Name:      "testing",
+			Namespace: "testing",
+		},
+		Status: api.PodStatus{
+			Phase: api.PodRunning,
+			PodIP: "10.244.1.16",
+		},
+	}
+	secret := api.Secret{
+		ObjectMeta: api.ObjectMeta{
+			Name:      config.APIKeySecret,
+			Namespace: "testing",
+		},
+		Data: map[string][]byte{
+			"api-key": apiKey,
+		},
+	}
+
+	validateConf(t, "pod with API Key", expectedConf, []*api.Pod{&pod}, []*api.Secret{&secret})
+
+	resetConf()
 }

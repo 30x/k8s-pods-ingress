@@ -17,6 +17,8 @@ type Cache struct {
 Config is the structure containing the configuration
 */
 type Config struct {
+	// The header name used to identify the API Key
+	APIKeyHeader string
 	// The secret name used to store the API Key for the namespace
 	APIKeySecret string
 	// The secret data field name to store the API Key for the namespace

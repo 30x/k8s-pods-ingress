@@ -13,6 +13,8 @@ import (
 )
 
 const (
+	// DefaultAPIKeyHeader is the default value for the header used to identify the API Key (X-ROUTING-API-KEY)
+	DefaultAPIKeyHeader = "X-ROUTING-API-KEY"
 	// DefaultAPIKeySecret is the default value for the first portion of the DefaultAPIKeySecretLocation (routing)
 	DefaultAPIKeySecret = "routing"
 	// DefaultAPIKeySecretDataField is the default value for the second portion of the DefaultAPIKeySecretDataField (api-key)
@@ -27,6 +29,8 @@ const (
 	DefaultPort = 80
 	// DefaultRoutableLabelSelector is the default value for EnvVarRoutableLabelSelector (routable=true)
 	DefaultRoutableLabelSelector = "routable=true"
+	// EnvVarAPIKeyHeader Environment variable name for providing the header name used to identify the API Key header
+	EnvVarAPIKeyHeader = "API_KEY_HEADER"
 	// EnvVarAPIKeySecretLocation Environment variable name for providing the location of the secret (name:field) to identify API Key secrets
 	EnvVarAPIKeySecretLocation = "API_KEY_SECRET_LOCATION"
 	// EnvVarHostsAnnotation Environment variable name for providing the name of the hosts annotation
@@ -52,11 +56,16 @@ ConfigFromEnv returns the configuration based on the environment variables and v
 */
 func ConfigFromEnv() (*Config, error) {
 	config := &Config{
+		APIKeyHeader:    os.Getenv(EnvVarAPIKeyHeader),
 		HostsAnnotation: os.Getenv(EnvVarHostsAnnotation),
 		PathsAnnotation: os.Getenv(EnvVarPathsAnnotation),
 	}
 
 	// Apply defaults
+	if config.APIKeyHeader == "" {
+		config.APIKeyHeader = DefaultAPIKeyHeader
+	}
+
 	if config.HostsAnnotation == "" {
 		config.HostsAnnotation = DefaultHostsAnnotation
 	}

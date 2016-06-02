@@ -105,6 +105,7 @@ func main() {
 
 	// Print the configuration
 	log.Println("  Using configuration:")
+	log.Printf("    API Key Header Name: %s\n", config.APIKeyHeader)
 	log.Printf("    API Key Secret Name: %s\n", config.APIKeySecret)
 	log.Printf("    API Key Secret Data Field: %s\n", config.APIKeySecretDataField)
 	log.Printf("    Hosts Annotation: %s\n", config.HostsAnnotation)
