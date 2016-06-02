@@ -10,6 +10,8 @@ import (
 	"text/template"
 
 	"github.com/30x/k8s-pods-ingress/ingress"
+
+	"k8s.io/kubernetes/pkg/api"
 )
 
 const (
@@ -25,7 +27,7 @@ http {
 {{range $key, $upstream := .Upstreams}}
   # Upstream for {{$upstream.Path}} traffic on {{$upstream.Host}}
   upstream {{$upstream.Name}} {
-{{range $server := $upstream.Servers}}    # Pod {{$server.PodName}}
+{{range $server := $upstream.Servers}}    # Pod {{$server.Pod.Name}} (namespace: {{$server.Pod.Namespace}})
     server {{$server.Target}};
 {{end}}  }
 {{end}}{{range $host, $server := .Hosts}}
@@ -39,7 +41,7 @@ http {
       if ($http_x_routing_api_key != '{{$location.Secret}}') {
         return 403;
       }
-      {{end}}{{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.PodName}}{{end}}
+      {{end}}{{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.Pod.Name}} (namespace: {{$location.Server.Pod.Namespace}}){{end}}
       proxy_pass http://{{$location.Server.Target}};
     }
 {{end}}  }
@@ -80,7 +82,7 @@ type locationT struct {
 
 type serverT struct {
 	IsUpstream bool
-	PodName    string
+	Pod        *api.Pod
 	Target     string
 }
 
@@ -104,7 +106,7 @@ func (slice serversT) Len() int {
 }
 
 func (slice serversT) Less(i, j int) bool {
-	return slice[i].PodName < slice[j].PodName
+	return slice[i].Pod.Name < slice[j].Pod.Name
 }
 
 func (slice serversT) Swap(i, j int) {
@@ -201,8 +203,8 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 						// If there is no server for this target, create one
 						if ok {
 							upstream.Servers = append(upstream.Servers, &serverT{
-								PodName: cacheEntry.Pod.Name,
-								Target:  target,
+								Pod:    cacheEntry.Pod,
+								Target: target,
 							})
 
 							// Sort to make finding your pods in an upstream easier
@@ -217,8 +219,8 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 							Servers: []*serverT{
 								location.Server,
 								&serverT{
-									PodName: cacheEntry.Pod.Name,
-									Target:  target,
+									Pod:    cacheEntry.Pod,
+									Target: target,
 								},
 							},
 						}
@@ -236,8 +238,8 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 					Path:      route.Incoming.Path,
 					Secret:    locationSecret,
 					Server: &serverT{
-						PodName: cacheEntry.Pod.Name,
-						Target:  target,
+						Pod:    cacheEntry.Pod,
+						Target: target,
 					},
 				}
 			}

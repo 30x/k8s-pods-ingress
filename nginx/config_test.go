@@ -145,13 +145,13 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
-      # Pod testing
+      # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
 
     location /test {
       proxy_set_header Host $host;
-      # Pod testing
+      # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
   }
@@ -164,7 +164,8 @@ http {
 				"routingHosts": "test.github.com",
 				"routingPaths": "80:/prod 3000:/test",
 			},
-			Name: "testing",
+			Name:      "testing",
+			Namespace: "testing",
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
@@ -200,13 +201,13 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
-      # Pod testing
+      # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
 
     location /test {
       proxy_set_header Host $host;
-      # Pod testing
+      # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
   }
@@ -219,7 +220,8 @@ http {
 				"routingHosts": "test.github.com",
 				"routingPaths": "80:/prod 3000:/test",
 			},
-			Name: "testing",
+			Name:      "testing",
+			Namespace: "testing",
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
@@ -252,7 +254,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
-      # Pod testing2
+      # Pod testing2 (namespace: testing)
       proxy_pass http://10.244.1.17;
     }
   }
@@ -263,7 +265,7 @@ http {
 
     location /nodejs {
       proxy_set_header Host $host;
-      # Pod testing
+      # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
   }
@@ -277,7 +279,8 @@ http {
 					"routingHosts": "test.github.com",
 					"routingPaths": "3000:/nodejs",
 				},
-				Name: "testing",
+				Name:      "testing",
+				Namespace: "testing",
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -290,7 +293,8 @@ http {
 					"routingHosts": "prod.github.com",
 					"routingPaths": "80:/",
 				},
-				Name: "testing2",
+				Name:      "testing2",
+				Namespace: "testing",
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -318,11 +322,11 @@ http {
 
   # Upstream for / traffic on test.github.com
   upstream upstream619897598 {
-    # Pod testing
+    # Pod testing (namespace: testing)
     server 10.244.1.16;
-    # Pod testing2
+    # Pod testing2 (namespace: testing)
     server 10.244.1.17;
-    # Pod testing3
+    # Pod testing3 (namespace: testing)
     server 10.244.1.18:3000;
   }
 
@@ -346,7 +350,8 @@ http {
 					"routingHosts": "test.github.com",
 					"routingPaths": "80:/",
 				},
-				Name: "testing",
+				Name:      "testing",
+				Namespace: "testing",
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -359,7 +364,8 @@ http {
 					"routingHosts": "test.github.com",
 					"routingPaths": "80:/",
 				},
-				Name: "testing2",
+				Name:      "testing2",
+				Namespace: "testing",
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -372,7 +378,8 @@ http {
 					"routingHosts": "test.github.com",
 					"routingPaths": "3000:/",
 				},
-				Name: "testing3",
+				Name:      "testing3",
+				Namespace: "testing",
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -409,7 +416,7 @@ http {
       if ($http_x_routing_api_key != '` + base64.StdEncoding.EncodeToString(apiKey) + `') {
         return 403;
       }
-      # Pod testing
+      # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
   }
