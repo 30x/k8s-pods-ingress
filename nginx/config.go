@@ -69,7 +69,7 @@ daemon on;
 // Cannot declare as a constant
 var defaultNginxConf string
 var defaultNginxConfTemplate *template.Template
-var nginxApiKeyHeader string
+var nginxAPIKeyHeader string
 var nginxConfTemplate *template.Template
 
 type hostT struct {
@@ -124,9 +124,9 @@ func hash(s string) uint32 {
 }
 
 func convertAPIKeyHeaderForNginx(config *ingress.Config) {
-	if nginxApiKeyHeader == "" {
+	if nginxAPIKeyHeader == "" {
 		// Convert the API Key header to nginx
-		nginxApiKeyHeader = strings.ToLower(regexp.MustCompile("[^A-Za-z0-9]").ReplaceAllString(config.APIKeyHeader, "_"))
+		nginxAPIKeyHeader = strings.ToLower(regexp.MustCompile("[^A-Za-z0-9]").ReplaceAllString(config.APIKeyHeader, "_"))
 	}
 }
 
@@ -163,7 +163,7 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 	convertAPIKeyHeaderForNginx(config)
 
 	tmplData := templateDataT{
-		APIKeyHeader: nginxApiKeyHeader,
+		APIKeyHeader: nginxAPIKeyHeader,
 		Hosts:        make(map[string]*hostT),
 		Port:         config.Port,
 		Upstreams:    make(map[string]*upstreamT),

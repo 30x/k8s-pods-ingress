@@ -49,7 +49,7 @@ func resetConf() {
 	// Change the config port
 	config.Port = 80
 	// Reset the cached API Key header (At runtime, we cache the results because they will never change)
-	nginxApiKeyHeader = ""
+	nginxAPIKeyHeader = ""
 }
 
 func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets []*api.Secret) {

@@ -32,9 +32,9 @@ func initController(config *ingress.Config, kubeClient *client.Client) (*ingress
 	}
 
 	// Turn the pods into a map based on the pod's name
-	for _, pod := range pods.Items {
+	for i, pod := range pods.Items {
 		cache.Pods[pod.Name] = &ingress.PodWithRoutes{
-			Pod:    &pod,
+			Pod:    &(pods.Items[i]),
 			Routes: ingress.GetRoutes(config, &pod),
 		}
 	}
@@ -43,8 +43,8 @@ func initController(config *ingress.Config, kubeClient *client.Client) (*ingress
 	secrets, err := ingress.GetIngressSecretList(config, kubeClient)
 
 	// Turn the secrets into a map based on the secret's namespace
-	for _, secret := range secrets.Items {
-		cache.Secrets[secret.Namespace] = &secret
+	for i, secret := range secrets.Items {
+		cache.Secrets[secret.Namespace] = &(secrets.Items[i])
 	}
 
 	if err != nil {
