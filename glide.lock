@@ -1,5 +1,5 @@
-hash: d3238b9f9a2f38bee2749678273418798d8453d3862704e4cbbd1d9542baebc7
-updated: 2016-03-24T17:47:11.895379984-06:00
+hash: 3c692a5990e30826801d3690ddfd335548fba7c37e76a2dac9a7c18db04cae7d
+updated: 2016-06-09T13:59:33.792084363-06:00
 imports:
 - name: bitbucket.org/ww/goautoneg
   version: '***'
@@ -110,13 +110,15 @@ imports:
 - name: gopkg.in/yaml.v2
   version: d466437aa4adc35830964cffc5b5f262c63ddcb4
 - name: k8s.io/kubernetes
-  version: 47ee746fcc71fb86c64c9bc6221e475e98ee0139
+  version: 3d6adabd365ed5f81a2a3b843c63626c27e4034d
   subpackages:
   - pkg/api
   - pkg/client/unversioned
-  - pkg/fields
   - pkg/watch
+  - pkg/fields
   - pkg/labels
+  - pkg/util/validation
+  - pkg/client/restclient
   - pkg/api/meta
   - pkg/api/resource
   - pkg/api/unversioned
@@ -141,13 +143,16 @@ imports:
   - pkg/apis/extensions
   - pkg/apis/extensions/install
   - pkg/apis/metrics/install
-  - pkg/client/restclient
   - pkg/client/typed/discovery
   - pkg/util/net
   - pkg/util/wait
   - pkg/version
   - pkg/util/runtime
-  - pkg/util/validation
+  - pkg/api/v1
+  - pkg/api/validation
+  - pkg/client/metrics
+  - pkg/client/transport
+  - pkg/watch/json
   - pkg/util/errors
   - third_party/forked/reflect
   - pkg/conversion/queryparams
@@ -156,7 +161,6 @@ imports:
   - pkg/runtime/serializer/versioning
   - pkg/util/integer
   - pkg/util/validation/field
-  - pkg/api/v1
   - pkg/apimachinery
   - pkg/apis/authorization
   - pkg/apis/authorization/v1beta1
@@ -167,20 +171,15 @@ imports:
   - pkg/apis/extensions/v1beta1
   - pkg/apis/metrics
   - pkg/apis/metrics/v1alpha1
-  - pkg/api/validation
-  - pkg/client/metrics
-  - pkg/client/transport
-  - pkg/util/crypto
-  - pkg/watch/json
-  - pkg/util/yaml
   - pkg/util/parsers
-  - pkg/kubelet/qos
-  - pkg/master/ports
   - pkg/api/endpoints
   - pkg/api/pod
   - pkg/api/service
   - pkg/api/util
   - pkg/capabilities
+  - pkg/util/yaml
+  - pkg/kubelet/qos
+  - pkg/master/ports
   - pkg/util/hash
   - pkg/util/net/sets
 - name: speter.net/go/exp/math/dec/inf
