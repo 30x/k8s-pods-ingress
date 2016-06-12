@@ -5,6 +5,7 @@ const os = require('os')
 const socketIO = require('socket.io')
 const allIfcs = os.networkInterfaces()
 
+const basePath = process.env.BASE_PATH || '/nodejs'
 const getEnv = (req) => {
   var env = {
     env: process.env,
@@ -30,7 +31,7 @@ const server = http.createServer((req, res) => {
   })
   res.end(JSON.stringify(getEnv(req), null, 2))
 })
-const io = socketIO(server, {path: '/nodejs/socket.io'})
+const io = socketIO(server, {path: basePath + '/socket.io'})
 
 // Generate the list of IPs
 Object.keys(allIfcs).forEach((name) => {
