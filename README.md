@@ -104,7 +104,8 @@ The other part of this implementation that is worth documenting is that in the p
 enabling WebSockets in nginx, you see they use `proxy_http_version 1.1;` to force HTTP 1.1.  Well, for a generic server
 where not all `location` blocks are for WebSockets, we needed a way to conditionally enable HTTP 1.1.  Well...there is
 no way to do this.  `proxy_http_version` cannot be used in an `if` directive and `proxy_http_version` cannot be set to
-a string value, which is the only value you can use for nginx variables.
+a string value, which is the only value you can use for nginx variables.  So since we do not want to force HTTP 1.1 on
+everyone, we just leave it up to the client to make an HTTP 1.1 request.
 
 So when you look at the generated nginx configuration and see some duplicate configuration related to WebSockets, or
 you see that we are not forcing HTTP 1.1, now you know.
