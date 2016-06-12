@@ -2,24 +2,35 @@
 
 const http = require('http')
 const os = require('os')
+const socketIO = require('socket.io')
 const allIfcs = os.networkInterfaces()
 
-const ifcs = {}
-const port = process.env.PORT || 3000
-const server = http.createServer((req, res) => {
-  res.writeHead(200, {
-    'Content-Type': 'application/json'
-  })
-  res.end(JSON.stringify({
+const getEnv = (req) => {
+  var env = {
     env: process.env,
-    ips: ifcs,
-    req: {
+    ips: ifcs
+  }
+
+  if (typeof req !== 'undefined') {
+    env.req = {
       headers: req.headers,
       method: req.method,
       url: req.url
     }
-  }, null, 2))
+  }
+
+  return env
+}
+const ifcs = {}
+const port = process.env.PORT || 3000
+const server = http.createServer((req, res) => {
+  console.log(req)
+  res.writeHead(200, {
+    'Content-Type': 'application/json'
+  })
+  res.end(JSON.stringify(getEnv(req), null, 2))
 })
+const io = socketIO(server, {path: '/nodejs/socket.io'})
 
 // Generate the list of IPs
 Object.keys(allIfcs).forEach((name) => {
@@ -47,3 +58,10 @@ server.listen(port, () => {
 
   console.log('Server listening on port', port)
 })
+
+io.on('connection', function (socket) {
+  // Emit the environment back upon request
+  socket.on('env', function () {
+    socket.emit('env', getEnv());
+  })
+});

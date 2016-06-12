@@ -147,6 +147,7 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
@@ -154,6 +155,7 @@ http {
 
     location /test {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
@@ -205,6 +207,7 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
@@ -212,6 +215,7 @@ http {
 
     location /test {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
@@ -260,6 +264,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Pod testing2 (namespace: testing)
       proxy_pass http://10.244.1.17;
@@ -272,6 +277,7 @@ http {
 
     location /nodejs {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
@@ -344,6 +350,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Upstream upstream619897598
       proxy_pass http://upstream619897598;
@@ -421,6 +428,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Check the Routing API Key (namespace: testing)
       if ($http_x_routing_api_key != "` + base64.StdEncoding.EncodeToString(apiKey) + `") {
@@ -487,6 +495,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       # Check the Routing API Key (namespace: testing)
       if ($http_x_something_custom_api_key != "` + base64.StdEncoding.EncodeToString(apiKey) + `") {

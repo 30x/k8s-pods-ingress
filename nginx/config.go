@@ -39,6 +39,7 @@ http {
 {{range $path, $location := $server.Locations}}
     location {{$path}} {
       proxy_set_header Host $host;
+` + websocketConfTmpl + `
 
       {{if ne $location.Secret ""}}# Check the Routing API Key (namespace: {{$location.Namespace}})
       if ($http_{{$.APIKeyHeader}} != "{{$location.Secret}}") {
@@ -64,6 +65,22 @@ daemon on;
     return 444;
   }
 `
+	websocketConfTmpl = `
+      # Begin WebSocket Support Configuration (https://www.nginx.com/blog/websocket-nginx/)
+
+      # Pass through the Upgrade header (when present)
+      proxy_set_header Upgrade $http_upgrade;
+
+      # Pass through the Connection header (or default to 'close' as nginx itself would do)
+      set $p_connection close;
+
+      if ($http_connection != "") {
+        set $p_connection $http_connection;
+      }
+
+      proxy_set_header Connection $p_connection;
+
+      # End WebSocket Support Configuration`
 	// NginxConfPath is The nginx configuration file path
 	NginxConfPath = "/etc/nginx/nginx.conf"
 )

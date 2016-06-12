@@ -11,5 +11,6 @@ k8s-pods-ingress
 .idea/
 .settings/
 .vscode/
+demo/node_modules/
 typings/
 vendor/

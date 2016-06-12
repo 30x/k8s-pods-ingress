@@ -84,6 +84,31 @@ multiple namespaces to consume traffic for the same host and path combination, t
 work fine in this situation, the router's API Key is namespace specific and the first seen API Key is the one that is
 used.
 
+# WebSocket Support
+
+Why are we bringing up WebSocket support?  Well, nginx itself operates in a way that makes routing to Pods that are
+WebSocket servers a little difficult.  For more details, read the nginx documentation located here:
+https://www.nginx.com/blog/websocket-nginx/  The way that the k8s-pods-ingress addresses things is at each `location`
+block, we throw in some WebSocket configuration.  It's very simple stuff but since there is some reasoning behind the
+location where this is applied and the approach taken, it makes sense to explain it here.
+
+The WebSocket configuration is at the `location` level, and it is there because nginx does not allow us to use the
+[set directive](http://nginx.org/en/docs/http/ngx_http_rewrite_module.html#set) at the `server` or `http` level.  We
+have to use the `set` directive to properly handle the `Connection` header.  See, nginx uses `close` as the default
+value for the `Connection` header when there is no `Connection` header provided.  So if we just passed through the
+`Connection` header and there was no `Connection` header provided, instead of using the default value of `close` the
+value would be `''` which would basically delete the `Connection` header which is not how nginx operates.  So we have to
+conditionally set a variable based on the `Connection` header value and `set` is the only way.
+
+The other part of this implementation that is worth documenting is that in the previously linked documentation for
+enabling WebSockets in nginx, you see they use `proxy_http_version 1.1;` to force HTTP 1.1.  Well, for a generic server
+where not all `location` blocks are for WebSockets, we needed a way to conditionally enable HTTP 1.1.  Well...there is
+no way to do this.  `proxy_http_version` cannot be used in an `if` directive and `proxy_http_version` cannot be set to
+a string value, which is the only value you can use for nginx variables.
+
+So when you look at the generated nginx configuration and see some duplicate configuration related to WebSockets, or
+you see that we are not forcing HTTP 1.1, now you know.
+
 # Examples
 
 ## An Ingress Controller
@@ -154,7 +179,7 @@ spec:
     spec:
       containers:
       - name: nodejs-k8s-env
-        image: whitlockjc/nodejs-k8s-env
+        image: 192.168.64.1:5000/nodejs-k8s-env
         env:
           - name: PORT
             value: "3000"
@@ -183,6 +208,23 @@ http {
 
     location /nodejs {
       proxy_set_header Host $host;
+
+      # Begin WebSocket Support Configuration (https://www.nginx.com/blog/websocket-nginx/)
+
+      # Pass through the Upgrade header (when present)
+      proxy_set_header Upgrade $http_upgrade;
+
+      # Pass through the Connection header (or default to 'close' as nginx itself would do)
+      set $p_connection close;
+
+      if ($http_connection != "") {
+        set $p_connection $http_connection;
+      }
+
+      proxy_set_header Connection $p_connection;
+
+      # End WebSocket Support Configuration`
+
       # Pod nodejs-k8s-env-eq7mh
       proxy_pass http://10.244.69.6:3000;
     }
@@ -224,6 +266,21 @@ everything worked out properly, you should see output like this:
 }
 ```
 
+If you've noticed in the example nginx configuration files above, nginx is configured appropriately to reverse proxy to
+WebSocket servers.  _(The only reason we bring this up is that it's not something you get out of the box.)_  To test
+this using the the previously-deployed application, use the following Node.js application:
+
+```js
+var socket = require('socket.io-client')('http://test.k8s.local', {path: '/nodejs/socket.io'});
+
+socket.on('env', function (env) {
+  console.log(JSON.stringify(env, null, 2));
+});
+
+// Emit the 'env' event to the server, which emits an 'env' event to the client with the server environment details.
+socket.emit('env');
+```
+
 Now that's cool and all but what happens when we scale our application?  Let's scale our microservice to `3` instances
 using `kubectl scale --replicas=3 replicationcontrollers nodejs-k8s-env`.  Your `/etc/nginx/nginx.conf` should look
 something like this:
@@ -254,6 +311,23 @@ http {
 
     location /nodejs {
       proxy_set_header Host $host;
+
+      # Begin WebSocket Support Configuration (https://www.nginx.com/blog/websocket-nginx/)
+
+      # Pass through the Upgrade header (when present)
+      proxy_set_header Upgrade $http_upgrade;
+
+      # Pass through the Connection header (or default to 'close' as nginx itself would do)
+      set $p_connection close;
+
+      if ($http_connection != "") {
+        set $p_connection $http_connection;
+      }
+
+      proxy_set_header Connection $p_connection;
+
+      # End WebSocket Support Configuration`
+
       # Upstream upstream1866206336
       proxy_pass http://upstream1866206336;
     }
