@@ -39,10 +39,12 @@ http {
 {{range $path, $location := $server.Locations}}
     location {{$path}} {
       proxy_set_header Host $host;
+
       {{if ne $location.Secret ""}}# Check the Routing API Key (namespace: {{$location.Namespace}})
-      if ($http_{{$.APIKeyHeader}} != '{{$location.Secret}}') {
+      if ($http_{{$.APIKeyHeader}} != "{{$location.Secret}}") {
         return 403;
       }
+
       {{end}}{{if $location.Server.IsUpstream}}# Upstream {{$location.Server.Target}}{{else}}# Pod {{$location.Server.Pod.Name}} (namespace: {{$location.Server.Pod.Namespace}}){{end}}
       proxy_pass http://{{$location.Server.Target}};
     }

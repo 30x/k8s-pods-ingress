@@ -147,12 +147,14 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
 
     location /test {
       proxy_set_header Host $host;
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
@@ -203,12 +205,14 @@ http {
 
     location /prod {
       proxy_set_header Host $host;
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
 
     location /test {
       proxy_set_header Host $host;
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
@@ -256,6 +260,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
+
       # Pod testing2 (namespace: testing)
       proxy_pass http://10.244.1.17;
     }
@@ -267,6 +272,7 @@ http {
 
     location /nodejs {
       proxy_set_header Host $host;
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
@@ -338,6 +344,7 @@ http {
 
     location / {
       proxy_set_header Host $host;
+
       # Upstream upstream619897598
       proxy_pass http://upstream619897598;
     }
@@ -414,10 +421,12 @@ http {
 
     location / {
       proxy_set_header Host $host;
+
       # Check the Routing API Key (namespace: testing)
-      if ($http_x_routing_api_key != '` + base64.StdEncoding.EncodeToString(apiKey) + `') {
+      if ($http_x_routing_api_key != "` + base64.StdEncoding.EncodeToString(apiKey) + `") {
         return 403;
       }
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
@@ -478,10 +487,12 @@ http {
 
     location / {
       proxy_set_header Host $host;
+
       # Check the Routing API Key (namespace: testing)
-      if ($http_x_something_custom_api_key != '` + base64.StdEncoding.EncodeToString(apiKey) + `') {
+      if ($http_x_something_custom_api_key != "` + base64.StdEncoding.EncodeToString(apiKey) + `") {
         return 403;
       }
+
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
