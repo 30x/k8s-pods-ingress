@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: nodejs-k8s-env
-        image: whitlockjc/nodejs-k8s-env:v0
+        image: whitlockjc/nodejs-k8s-env:latest
         env:
           - name: PORT
             value: "3000"
