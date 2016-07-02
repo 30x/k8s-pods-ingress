@@ -84,6 +84,13 @@ multiple namespaces to consume traffic for the same host and path combination, t
 work fine in this situation, the router's API Key is namespace specific and the first seen API Key is the one that is
 used.
 
+# Streaming Support
+
+By default, nginx will buffer responses for proxied servers.  Unfortunately, this can be a problem if you deploy a
+streaming APIs.  Thankfully, nginx makes it easy for proxied applications to disable proxy buffering by setting the
+`X-Accel-Buffering` header to `no`.  Doing this will make your streaming API work as expected.  For more details, view
+the nginx documentation: http://nginx.org/en/docs/http/ngx_http_proxy_module.html#proxy_buffering
+
 # WebSocket Support
 
 Why are we bringing up WebSocket support?  Well, nginx itself operates in a way that makes routing to Pods that are
