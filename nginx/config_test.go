@@ -139,7 +139,7 @@ http {` + httpConfPreambleTmpl + `
   server {
     listen 80;
     server_name test.github.com;
-
+` + defaultNginxLocationTmpl + `
     location /prod {
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
@@ -188,7 +188,7 @@ http {` + httpConfPreambleTmpl + `
   server {
     listen 90;
     server_name test.github.com;
-
+` + defaultNginxLocationTmpl + `
     location /prod {
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
@@ -244,7 +244,7 @@ http {` + httpConfPreambleTmpl + `
   server {
     listen 80;
     server_name test.github.com;
-
+` + defaultNginxLocationTmpl + `
     location /nodejs {
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;

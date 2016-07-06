@@ -17,6 +17,25 @@ import (
 )
 
 const (
+	defaultNginxConfTmpl = `
+# A very simple nginx configuration file that forces nginx to start as a daemon.
+events {}
+http {` + defaultNginxServerConfTmpl + `}
+daemon on;
+`
+	defaultNginxServerConfTmpl = `
+  # Default server that will just close the connection as if there was no server available
+  server {
+    listen {{.Port}} default_server;
+    return 444;
+  }
+`
+	defaultNginxLocationTmpl = `
+    # Here to avoid returning the nginx welcome page for servers that do not have a "/" location.  (Issue #35)
+    location / {
+      return 404;
+    }
+`
 	httpConfPreambleTmpl = `
   # http://nginx.org/en/docs/http/ngx_http_core_module.html
   types_hash_max_size 2048;
@@ -55,7 +74,7 @@ http {` + httpConfPreambleTmpl + `{{range $key, $upstream := .Upstreams}}
   server {
     listen {{$.Port}};
     server_name {{$host}};
-{{range $path, $location := $server.Locations}}
+{{if $server.NeedsDefaultLocation}}` + defaultNginxLocationTmpl + `{{end}}{{range $path, $location := $server.Locations}}
     location {{$path}} {
       {{if ne $location.Secret ""}}# Check the Routing API Key (namespace: {{$location.Namespace}})
       if ($http_{{$.APIKeyHeader}} != "{{$location.Secret}}") {
@@ -68,19 +87,6 @@ http {` + httpConfPreambleTmpl + `{{range $key, $upstream := .Upstreams}}
 {{end}}  }
 {{end}}` + defaultNginxServerConfTmpl + `}
 `
-	defaultNginxConfTmpl = `
-# A very simple nginx configuration file that forces nginx to start as a daemon.
-events {}
-http {` + defaultNginxServerConfTmpl + `}
-daemon on;
-`
-	defaultNginxServerConfTmpl = `
-  # Default server that will just close the connection as if there was no server available
-  server {
-    listen {{.Port}} default_server;
-    return 444;
-  }
-`
 	// NginxConfPath is The nginx configuration file path
 	NginxConfPath = "/etc/nginx/nginx.conf"
 )
@@ -92,7 +98,8 @@ var nginxAPIKeyHeader string
 var nginxConfTemplate *template.Template
 
 type hostT struct {
-	Locations map[string]*locationT
+	Locations            map[string]*locationT
+	NeedsDefaultLocation bool
 }
 
 type locationT struct {
@@ -196,7 +203,8 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 
 			if !ok {
 				tmplData.Hosts[route.Incoming.Host] = &hostT{
-					Locations: make(map[string]*locationT),
+					Locations:            make(map[string]*locationT),
+					NeedsDefaultLocation: true,
 				}
 				host = tmplData.Hosts[route.Incoming.Host]
 			}
@@ -218,6 +226,11 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 
 			if route.Outgoing.Port != "80" && route.Outgoing.Port != "443" {
 				target += ":" + route.Outgoing.Port
+			}
+
+			// Unset the need for a default location if necessary
+			if host.NeedsDefaultLocation && route.Incoming.Path == "/" {
+				host.NeedsDefaultLocation = false
 			}
 
 			if ok {
