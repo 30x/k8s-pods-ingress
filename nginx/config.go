@@ -17,16 +17,35 @@ import (
 )
 
 const (
-	nginxConfTmpl = `
-events {
-  worker_connections 1024;
-}
-http {
+	httpConfPreambleTmpl = `
   # http://nginx.org/en/docs/http/ngx_http_core_module.html
   types_hash_max_size 2048;
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
-{{range $key, $upstream := .Upstreams}}
+
+  # Force HTTP 1.1 for upstream requests
+  proxy_http_version 1.1;
+
+  # When nginx proxies to an upstream, the default value used for 'Connection' is 'close'.  We use this variable to do
+  # the same thing so that whenever a 'Connection' header is in the request, the variable reflects the provided value
+  # otherwise, it defaults to 'close'.  This is opposed to just using "proxy_set_header Connection $http_connection"
+  # which would remove the 'Connection' header from the upstream request whenever the request does not contain a
+  # 'Connection' header, which is a deviation from the nginx norm.
+  map $http_connection $p_connection {
+    default $http_connection;
+    ''      close;
+  }
+
+  # Pass through the appropriate headers
+  proxy_set_header Connection $p_connection;
+  proxy_set_header Host $host;
+  proxy_set_header Upgrade $http_upgrade;
+`
+	nginxConfTmpl = `
+events {
+  worker_connections 1024;
+}
+http {` + httpConfPreambleTmpl + `{{range $key, $upstream := .Upstreams}}
   # Upstream for {{$upstream.Path}} traffic on {{$upstream.Host}}
   upstream {{$upstream.Name}} {
 {{range $server := $upstream.Servers}}    # Pod {{$server.Pod.Name}} (namespace: {{$server.Pod.Namespace}})
@@ -38,9 +57,6 @@ http {
     server_name {{$host}};
 {{range $path, $location := $server.Locations}}
     location {{$path}} {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       {{if ne $location.Secret ""}}# Check the Routing API Key (namespace: {{$location.Namespace}})
       if ($http_{{$.APIKeyHeader}} != "{{$location.Secret}}") {
         return 403;
@@ -65,22 +81,6 @@ daemon on;
     return 444;
   }
 `
-	websocketConfTmpl = `
-      # Begin WebSocket Support Configuration (https://www.nginx.com/blog/websocket-nginx/)
-
-      # Pass through the Upgrade header (when present)
-      proxy_set_header Upgrade $http_upgrade;
-
-      # Pass through the Connection header (or default to 'close' as nginx itself would do)
-      set $p_connection close;
-
-      if ($http_connection != "") {
-        set $p_connection $http_connection;
-      }
-
-      proxy_set_header Connection $p_connection;
-
-      # End WebSocket Support Configuration`
 	// NginxConfPath is The nginx configuration file path
 	NginxConfPath = "/etc/nginx/nginx.conf"
 )

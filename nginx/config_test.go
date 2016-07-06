@@ -135,28 +135,17 @@ func TestGetConfMultiplePaths(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
+http {` + httpConfPreambleTmpl + `
   server {
     listen 80;
     server_name test.github.com;
 
     location /prod {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
 
     location /test {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
@@ -195,28 +184,17 @@ func TestGetConfMultiplePathsCustomPort(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
+http {` + httpConfPreambleTmpl + `
   server {
     listen 90;
     server_name test.github.com;
 
     location /prod {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16;
     }
 
     location /test {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
@@ -252,20 +230,12 @@ func TestGetConfMultipleRoutableServices(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
+http {` + httpConfPreambleTmpl + `
   server {
     listen 80;
     server_name prod.github.com;
 
     location / {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Pod testing2 (namespace: testing)
       proxy_pass http://10.244.1.17;
     }
@@ -276,9 +246,6 @@ http {
     server_name test.github.com;
 
     location /nodejs {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Pod testing (namespace: testing)
       proxy_pass http://10.244.1.16:3000;
     }
@@ -328,12 +295,7 @@ func TestGetConfMultiplePodRoutableServices(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
+http {` + httpConfPreambleTmpl + `
   # Upstream for / traffic on test.github.com
   upstream upstream619897598 {
     # Pod testing (namespace: testing)
@@ -349,9 +311,6 @@ http {
     server_name test.github.com;
 
     location / {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Upstream upstream619897598
       proxy_pass http://upstream619897598;
     }
@@ -416,20 +375,12 @@ func TestGetConfWithAPIKey(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
+http {` + httpConfPreambleTmpl + `
   server {
     listen 80;
     server_name test.github.com;
 
     location / {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Check the Routing API Key (namespace: testing)
       if ($http_x_routing_api_key != "` + base64.StdEncoding.EncodeToString(apiKey) + `") {
         return 403;
@@ -483,20 +434,12 @@ func TestGetConfWithCustomAPIKeyHeader(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {
-  # http://nginx.org/en/docs/http/ngx_http_core_module.html
-  types_hash_max_size 2048;
-  server_names_hash_max_size 512;
-  server_names_hash_bucket_size 64;
-
+http {` + httpConfPreambleTmpl + `
   server {
     listen 80;
     server_name test.github.com;
 
     location / {
-      proxy_set_header Host $host;
-` + websocketConfTmpl + `
-
       # Check the Routing API Key (namespace: testing)
       if ($http_x_something_custom_api_key != "` + base64.StdEncoding.EncodeToString(apiKey) + `") {
         return 403;

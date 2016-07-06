@@ -210,29 +210,29 @@ http {
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
 
+  # Force HTTP 1.1 for upstream requests
+  proxy_http_version 1.1;
+
+  # When nginx proxies to an upstream, the default value used for 'Connection' is 'close'.  We use this variable to do
+  # the same thing so that whenever a 'Connection' header is in the request, the variable reflects the provided value
+  # otherwise, it defaults to 'close'.  This is opposed to just using "proxy_set_header Connection $http_connection"
+  # which would remove the 'Connection' header from the upstream request whenever the request does not contain a
+  # 'Connection' header, which is a deviation from the nginx norm.
+  map $http_connection $p_connection {
+    default $http_connection;
+    ''      close;
+  }
+
+  # Pass through the appropriate headers
+  proxy_set_header Connection $p_connection;
+  proxy_set_header Host $host;
+  proxy_set_header Upgrade $http_upgrade;
+
   server {
     listen 80;
     server_name test.k8s.local;
 
     location /nodejs {
-      proxy_set_header Host $host;
-
-      # Begin WebSocket Support Configuration (https://www.nginx.com/blog/websocket-nginx/)
-
-      # Pass through the Upgrade header (when present)
-      proxy_set_header Upgrade $http_upgrade;
-
-      # Pass through the Connection header (or default to 'close' as nginx itself would do)
-      set $p_connection close;
-
-      if ($http_connection != "") {
-        set $p_connection $http_connection;
-      }
-
-      proxy_set_header Connection $p_connection;
-
-      # End WebSocket Support Configuration`
-
       # Pod nodejs-k8s-env-eq7mh
       proxy_pass http://10.244.69.6:3000;
     }
@@ -303,6 +303,24 @@ http {
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
 
+  # Force HTTP 1.1 for upstream requests
+  proxy_http_version 1.1;
+
+  # When nginx proxies to an upstream, the default value used for 'Connection' is 'close'.  We use this variable to do
+  # the same thing so that whenever a 'Connection' header is in the request, the variable reflects the provided value
+  # otherwise, it defaults to 'close'.  This is opposed to just using "proxy_set_header Connection $http_connection"
+  # which would remove the 'Connection' header from the upstream request whenever the request does not contain a
+  # 'Connection' header, which is a deviation from the nginx norm.
+  map $http_connection $p_connection {
+    default $http_connection;
+    ''      close;
+  }
+
+  # Pass through the appropriate headers
+  proxy_set_header Connection $p_connection;
+  proxy_set_header Host $host;
+  proxy_set_header Upgrade $http_upgrade;
+
   # Upstream for /nodejs traffic on test.k8s.local
   upstream upstream1866206336 {
     # Pod nodejs-k8s-env-eq7mh
@@ -318,24 +336,6 @@ http {
     server_name test.k8s.local;
 
     location /nodejs {
-      proxy_set_header Host $host;
-
-      # Begin WebSocket Support Configuration (https://www.nginx.com/blog/websocket-nginx/)
-
-      # Pass through the Upgrade header (when present)
-      proxy_set_header Upgrade $http_upgrade;
-
-      # Pass through the Connection header (or default to 'close' as nginx itself would do)
-      set $p_connection close;
-
-      if ($http_connection != "") {
-        set $p_connection $http_connection;
-      }
-
-      proxy_set_header Connection $p_connection;
-
-      # End WebSocket Support Configuration`
-
       # Upstream upstream1866206336
       proxy_pass http://upstream1866206336;
     }
