@@ -6,7 +6,7 @@
 .projectile
 .tern-project
 coverage.out
-k8s-pods-ingress
+k8s-router
 
 .idea/
 .settings/

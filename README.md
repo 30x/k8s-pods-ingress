@@ -95,7 +95,7 @@ the nginx documentation: http://nginx.org/en/docs/http/ngx_http_proxy_module.htm
 
 Why are we bringing up WebSocket support?  Well, nginx itself operates in a way that makes routing to Pods that are
 WebSocket servers a little difficult.  For more details, read the nginx documentation located here:
-https://www.nginx.com/blog/websocket-nginx/  The way that the k8s-pods-ingress addresses things is at each `location`
+https://www.nginx.com/blog/websocket-nginx/  The way that the k8s-router addresses things is at each `location`
 block, we throw in some WebSocket configuration.  It's very simple stuff but since there is some reasoning behind the
 location where this is applied and the approach taken, it makes sense to explain it here.
 
@@ -379,7 +379,7 @@ spec:
         app: k8s-pods-router
     spec:
       containers:
-      - image: whitlockjc/k8s-pods-ingress:v0
+      - image: thirtyx/k8s-router:latest
         imagePullPolicy: Always
         name: k8s-pods-router-public
         ports:
@@ -401,7 +401,7 @@ spec:
             value: publicHosts
           - name: PATHS_ANNOTATION
             value: publicPaths
-      - image: whitlockjc/k8s-pods-ingress:v0
+      - image: thirtyx/k8s-router:latest
         imagePullPolicy: Always
         name: k8s-pods-router-private
         ports:
@@ -459,7 +459,7 @@ spec:
     spec:
       containers:
       - name: nodejs-k8s-env
-        image: whitlockjc/nodejs-k8s-env
+        image: thirtyx/nodejs-k8s-env
         env:
           - name: PORT
             value: "3000"
@@ -480,21 +480,21 @@ outside the scope of this example.
 # Building and Running
 
 If you're testing this outside of Kubernetes, you can just use `go build` followed by
-`KUBE_HOST=... ./k8s-pods-ingress`.  If you're building this to run on Kubernetes, you'll need to do the following:
+`KUBE_HOST=... ./k8s-router`.  If you're building this to run on Kubernetes, you'll need to do the following:
 
-* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
+* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-router .`
 * `docker build ...`
 * `docker tag ...`
 * `docker push ...`
 
 _(The `...` are there because your Docker comands will likely be different than mine or someone else's)_  We have an
-example DaemonSet for deploying the k8s-pods-ingress as an ingress controller to Kubernetes located at
+example DaemonSet for deploying the k8s-router as an ingress controller to Kubernetes located at
 `examples/ingress-daemonset.yaml`.  Here is how I test locally:
 
-* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-pods-ingress .`
-* `docker build -t k8s-pods-ingress .`
-* `docker tag -f k8s-pods-ingress 192.168.64.1:5000/k8s-pods-ingress`
-* `docker push 192.168.64.1:5000/k8s-pods-ingress`
+* `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-router .`
+* `docker build -t k8s-router .`
+* `docker tag -f k8s-router 192.168.64.1:5000/k8s-router`
+* `docker push 192.168.64.1:5000/k8s-router`
 * `kubectl create -f examples/ingress-daemonset.yaml`
 
 **Note:** This router is written to be ran within Kubernetes but for testing purposes, it can be ran outside of

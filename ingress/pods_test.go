@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/30x/k8s-pods-ingress/kubernetes"
+	"github.com/30x/k8s-router/kubernetes"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/labels"
@@ -69,7 +69,7 @@ func validateRoutes(t *testing.T, desc string, expected, actual []*Route) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutablePodList
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutablePodList
 */
 func TestGetRoutablePodList(t *testing.T) {
 	kubeClient, err := kubernetes.GetClient()
@@ -95,7 +95,7 @@ func TestGetRoutablePodList(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod is not running
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutes where the pod is not running
 */
 func TestGetRoutesNotRunning(t *testing.T) {
 	validateRoutes(t, "pod not running", []*Route{}, GetRoutes(config, &api.Pod{
@@ -106,7 +106,7 @@ func TestGetRoutesNotRunning(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has no routingHosts annotation
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutes where the pod has no routingHosts annotation
 */
 func TestGetRoutesNoTrafficHosts(t *testing.T) {
 	validateRoutes(t, "pod has no routingHosts annotation", []*Route{}, GetRoutes(config, &api.Pod{
@@ -117,7 +117,7 @@ func TestGetRoutesNoTrafficHosts(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid routingHosts annotation
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutes where the pod has an invalid routingHosts annotation
 */
 func TestGetRoutesInvalidTrafficHosts(t *testing.T) {
 	validateRoutes(t, "pod has an invalid routingHosts host", []*Route{}, GetRoutes(config, &api.Pod{
@@ -133,7 +133,7 @@ func TestGetRoutesInvalidTrafficHosts(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid port value in the routingPaths annotation
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutes where the pod has an invalid port value in the routingPaths annotation
 */
 func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 	// Not a valid integer
@@ -177,7 +177,7 @@ func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has an invalid path value in the routingPaths annotation
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutes where the pod has an invalid path value in the routingPaths annotation
 */
 func TestGetRoutesInvalidPublicPathsPath(t *testing.T) {
 	// "%ZZ" is not a valid path segment
@@ -195,7 +195,7 @@ func TestGetRoutesInvalidPublicPathsPath(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#GetRoutes where the pod has no routingPaths annotation
+Test for github.com/30x/k8s-router/ingress/pods#GetRoutes where the pod has no routingPaths annotation
 */
 func TestGetRoutesValidPods(t *testing.T) {
 	host1 := "test.github.com"
@@ -358,7 +358,7 @@ func TestGetRoutesValidPods(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/pods#UpdatePodCacheForEvents
+Test for github.com/30x/k8s-router/ingress/pods#UpdatePodCacheForEvents
 */
 func TestUpdatePodCacheForEvents(t *testing.T) {
 	annotations := map[string]string{

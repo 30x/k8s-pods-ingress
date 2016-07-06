@@ -74,7 +74,7 @@ func validateConfig(t *testing.T, desc string, expected *Config, actual *Config)
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/config#ConfigFromEnv using the default environment
+Test for github.com/30x/k8s-router/ingress/config#ConfigFromEnv using the default environment
 */
 func TestConfigFromEnvDefaultConfig(t *testing.T) {
 	validateConfig(t, "default configuration", getConfig(t), &Config{
@@ -88,7 +88,7 @@ func TestConfigFromEnvDefaultConfig(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/config#ConfigFromEnv using invalid configurations
+Test for github.com/30x/k8s-router/ingress/config#ConfigFromEnv using invalid configurations
 */
 func TestConfigFromEnvInvalidEnv(t *testing.T) {
 	validateInvalidConfig := func(errMsg string) {
@@ -142,7 +142,7 @@ func TestConfigFromEnvInvalidEnv(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/config#ConfigFromEnv using a valid environment
+Test for github.com/30x/k8s-router/ingress/config#ConfigFromEnv using a valid environment
 */
 func TestConfigFromEnvValidConfig(t *testing.T) {
 	resetEnv(t)

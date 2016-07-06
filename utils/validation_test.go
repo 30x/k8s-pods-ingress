@@ -5,7 +5,7 @@ import (
 )
 
 /*
-Test for github.com/30x/k8s-pods-ingress/utils/validation#IsValidPort with invalid values
+Test for github.com/30x/k8s-router/utils/validation#IsValidPort with invalid values
 */
 func TestIsValidPortNotNumberInvalidValues(t *testing.T) {
 	makeError := func() {
@@ -20,7 +20,7 @@ func TestIsValidPortNotNumberInvalidValues(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/utils/validation#IsValidPort with valid values
+Test for github.com/30x/k8s-router/utils/validation#IsValidPort with valid values
 */
 func TestIsValidPortNotNumberValidValues(t *testing.T) {
 	makeError := func() {

@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/30x/k8s-pods-ingress/utils"
+	"github.com/30x/k8s-router/utils"
 
 	"k8s.io/kubernetes/pkg/labels"
 	"k8s.io/kubernetes/pkg/util/validation"

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/30x/k8s-pods-ingress/ingress"
+	"github.com/30x/k8s-router/ingress"
 
 	"k8s.io/kubernetes/pkg/api"
 )
@@ -77,7 +77,7 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with an empty cache
+Test for github.com/30x/k8s-router/nginx/config#GetConf with an empty cache
 */
 func TestGetConfNoRoutablePods(t *testing.T) {
 	conf := GetConf(config, &ingress.Cache{})
@@ -99,7 +99,7 @@ daemon on;
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with an empty cache and a custom port
+Test for github.com/30x/k8s-router/nginx/config#GetConf with an empty cache and a custom port
 */
 func TestGetConfNoRoutablePodsCustomPort(t *testing.T) {
 	resetConf()
@@ -128,7 +128,7 @@ daemon on;
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with single pod and multiple paths
+Test for github.com/30x/k8s-router/nginx/config#GetConf with single pod and multiple paths
 */
 func TestGetConfMultiplePaths(t *testing.T) {
 	expectedConf := `
@@ -172,7 +172,7 @@ http {` + httpConfPreambleTmpl + `
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with single pod, multiple paths and a custom port
+Test for github.com/30x/k8s-router/nginx/config#GetConf with single pod, multiple paths and a custom port
 */
 func TestGetConfMultiplePathsCustomPort(t *testing.T) {
 	resetConf()
@@ -223,7 +223,7 @@ http {` + httpConfPreambleTmpl + `
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with multiple, single pod services
+Test for github.com/30x/k8s-router/nginx/config#GetConf with multiple, single pod services
 */
 func TestGetConfMultipleRoutableServices(t *testing.T) {
 	expectedConf := `
@@ -288,7 +288,7 @@ http {` + httpConfPreambleTmpl + `
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with single, multiple pod services
+Test for github.com/30x/k8s-router/nginx/config#GetConf with single, multiple pod services
 */
 func TestGetConfMultiplePodRoutableServices(t *testing.T) {
 	expectedConf := `
@@ -367,7 +367,7 @@ http {` + httpConfPreambleTmpl + `
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with API Key
+Test for github.com/30x/k8s-router/nginx/config#GetConf with API Key
 */
 func TestGetConfWithAPIKey(t *testing.T) {
 	apiKey := []byte("Updated-API-Key")
@@ -421,7 +421,7 @@ http {` + httpConfPreambleTmpl + `
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/nginx/config#GetConf with custom API Key header
+Test for github.com/30x/k8s-router/nginx/config#GetConf with custom API Key header
 */
 func TestGetConfWithCustomAPIKeyHeader(t *testing.T) {
 	resetConf()

@@ -1,4 +1,4 @@
-package: github.com/30x/k8s-pods-ingress
+package: github.com/30x/k8s-router
 import:
 - package: k8s.io/kubernetes
   version: ~1.2.x

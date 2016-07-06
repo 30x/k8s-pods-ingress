@@ -1,19 +1,19 @@
 apiVersion: extensions/v1beta1
 kind: DaemonSet
 metadata:
-  name: k8s-pods-router
+  name: k8s-routers
   labels:
-    app: k8s-pods-router
+    app: k8s-routers
 spec:
   template:
     metadata:
       labels:
-        app: k8s-pods-router
+        app: k8s-routers
     spec:
       containers:
-      - image: whitlockjc/k8s-pods-ingress:v0
+      - image: thirtyx/k8s-router:latest
         imagePullPolicy: Always
-        name: k8s-pods-router-public
+        name: k8s-router-public
         ports:
           - containerPort: 80
             hostPort: 80
@@ -33,9 +33,9 @@ spec:
             value: publicHosts
           - name: PATHS_ANNOTATION
             value: publicPaths
-      - image: whitlockjc/k8s-pods-ingress:v0
+      - image: thirtyx/k8s-router:latest
         imagePullPolicy: Always
-        name: k8s-pods-router-private
+        name: k8s-router-private
         ports:
           - containerPort: 81
             # We should probably avoid using host port and if needed, at least lock it down from external access

@@ -4,9 +4,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/30x/k8s-pods-ingress/ingress"
-	"github.com/30x/k8s-pods-ingress/kubernetes"
-	"github.com/30x/k8s-pods-ingress/nginx"
+	"github.com/30x/k8s-router/ingress"
+	"github.com/30x/k8s-router/kubernetes"
+	"github.com/30x/k8s-router/nginx"
 
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
@@ -88,7 +88,7 @@ func initController(config *ingress.Config, kubeClient *client.Client) (*ingress
 Simple Go application that provides routing for host+path combinations to Kubernetes pods.  For more details on how to
 configure this, please review the design document located here:
 
-https://github.com/30x/k8s-pods-ingress#design
+https://github.com/30x/k8s-router#design
 
 This application is written to run inside the Kubernetes cluster but for outside of Kubernetes you can set the
 `KUBE_HOST` environment variable to run in a mock mode.

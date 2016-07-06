@@ -5,7 +5,7 @@ import (
 	"log"
 	"testing"
 
-	"github.com/30x/k8s-pods-ingress/kubernetes"
+	"github.com/30x/k8s-router/kubernetes"
 
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/watch"
@@ -18,7 +18,7 @@ func init() {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/secrets#GetIngressSecretList
+Test for github.com/30x/k8s-router/ingress/secrets#GetIngressSecretList
 */
 func TestGetIngressSecretList(t *testing.T) {
 	kubeClient, err := kubernetes.GetClient()
@@ -41,7 +41,7 @@ func TestGetIngressSecretList(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-pods-ingress/ingress/secrets#UpdateSecretCacheForEvents
+Test for github.com/30x/k8s-router/ingress/secrets#UpdateSecretCacheForEvents
 */
 func TestUpdateSecretCacheForEvents(t *testing.T) {
 	apiKeyStr := "API-Key"

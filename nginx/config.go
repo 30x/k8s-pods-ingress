@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/30x/k8s-pods-ingress/ingress"
+	"github.com/30x/k8s-router/ingress"
 
 	"k8s.io/kubernetes/pkg/api"
 )

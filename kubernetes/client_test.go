@@ -10,7 +10,7 @@ const (
 )
 
 /*
-Test for github.com/30x/k8s-pods-ingress/kubernetes/client#GetClient
+Test for github.com/30x/k8s-router/kubernetes/client#GetClient
 */
 func TestGetClient(t *testing.T) {
 	os.Unsetenv("KUBE_HOST")
