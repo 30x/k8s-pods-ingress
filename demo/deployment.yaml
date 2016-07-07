@@ -1,17 +1,13 @@
-apiVersion: v1
-kind: ReplicationController
+apiVersion: extensions/v1beta1
+kind: Deployment
 metadata:
   name: nodejs-k8s-env
-  labels:
-    name: nodejs-k8s-env
 spec:
   replicas: 1
-  selector:
-    name: nodejs-k8s-env
   template:
     metadata:
       labels:
-        name: nodejs-k8s-env
+        app: nodejs-k8s-env
         routable: "true"
       annotations:
         routingHosts: "test.k8s.local"
