@@ -27,7 +27,7 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/30x/k8s-router/ingress"
+	"github.com/30x/k8s-router/router"
 
 	"k8s.io/kubernetes/pkg/api"
 )
@@ -165,7 +165,7 @@ func hash(s string) uint32 {
 	return h.Sum32()
 }
 
-func convertAPIKeyHeaderForNginx(config *ingress.Config) {
+func convertAPIKeyHeaderForNginx(config *router.Config) {
 	if nginxAPIKeyHeader == "" {
 		// Convert the API Key header to nginx
 		nginxAPIKeyHeader = strings.ToLower(regexp.MustCompile("[^A-Za-z0-9]").ReplaceAllString(config.APIKeyHeader, "_"))
@@ -193,9 +193,9 @@ func init() {
 }
 
 /*
-GetConf takes the ingress cache and returns a generated nginx configuration
+GetConf takes the router cache and returns a generated nginx configuration
 */
-func GetConf(config *ingress.Config, cache *ingress.Cache) string {
+func GetConf(config *router.Config, cache *router.Cache) string {
 	// Quick out if there are no pods in the cache
 	if len(cache.Pods) == 0 {
 		return GetDefaultConf(config)
@@ -322,7 +322,7 @@ func GetConf(config *ingress.Config, cache *ingress.Cache) string {
 /*
 GetDefaultConf returns the default nginx.conf
 */
-func GetDefaultConf(config *ingress.Config) string {
+func GetDefaultConf(config *router.Config) string {
 	// Make sure we've converted the API Key to nginx format
 	convertAPIKeyHeaderForNginx(config)
 

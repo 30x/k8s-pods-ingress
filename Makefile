@@ -3,10 +3,10 @@ all: build
 check: test lint
 
 clean:
-	rm -f coverage.out k8s-router ingress/ingress.test kubernetes/kubernetes.test nginx/nginx.test utils/utils.test
+	rm -f coverage.out k8s-router router/router.test kubernetes/kubernetes.test nginx/nginx.test utils/utils.test
 
 lint:
-	golint ingress
+	golint router
 	golint kubernetes
 	golint nginx
 

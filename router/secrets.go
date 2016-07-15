@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingress
+package router
 
 import (
 	"log"
@@ -25,9 +25,9 @@ import (
 )
 
 /*
-GetIngressSecretList returns the ingress secrets.
+GetRouterSecretList returns the router secrets.
 */
-func GetIngressSecretList(config *Config, kubeClient *client.Client) (*api.SecretList, error) {
+func GetRouterSecretList(config *Config, kubeClient *client.Client) (*api.SecretList, error) {
 	// Query all secrets
 	secretList, err := kubeClient.Secrets(api.NamespaceAll).List(api.ListOptions{})
 
@@ -35,7 +35,7 @@ func GetIngressSecretList(config *Config, kubeClient *client.Client) (*api.Secre
 		return nil, err
 	}
 
-	// Filter out the secrets that are not ingress API Key secrets or that do not have the proper secret key
+	// Filter out the secrets that are not router API Key secrets or that do not have the proper secret key
 	var filtered []api.Secret
 
 	for _, secret := range secretList.Items {
@@ -45,7 +45,7 @@ func GetIngressSecretList(config *Config, kubeClient *client.Client) (*api.Secre
 			if ok {
 				filtered = append(filtered, secret)
 			} else {
-				log.Printf("    Ingress secret for namespace (%s) is not usable: Missing '%s' key\n", secret.Namespace, config.APIKeySecretDataField)
+				log.Printf("    Router secret for namespace (%s) is not usable: Missing '%s' key\n", secret.Namespace, config.APIKeySecretDataField)
 			}
 		}
 	}

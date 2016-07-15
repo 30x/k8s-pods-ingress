@@ -23,15 +23,15 @@ import (
 	"testing"
 	"text/template"
 
-	"github.com/30x/k8s-router/ingress"
+	"github.com/30x/k8s-router/router"
 
 	"k8s.io/kubernetes/pkg/api"
 )
 
-var config *ingress.Config
+var config *router.Config
 
 func init() {
-	envConfig, err := ingress.ConfigFromEnv()
+	envConfig, err := router.ConfigFromEnv()
 
 	if err != nil {
 		log.Fatalf("Unable to get configuration from environment: %v", err)
@@ -40,7 +40,7 @@ func init() {
 	config = envConfig
 }
 
-func getDefaultServerConf(config *ingress.Config) string {
+func getDefaultServerConf(config *router.Config) string {
 	var doc bytes.Buffer
 
 	// Parse the default nginx server block template
@@ -69,15 +69,15 @@ func resetConf() {
 }
 
 func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets []*api.Secret) {
-	cache := &ingress.Cache{
-		Pods:    make(map[string]*ingress.PodWithRoutes),
+	cache := &router.Cache{
+		Pods:    make(map[string]*router.PodWithRoutes),
 		Secrets: make(map[string]*api.Secret),
 	}
 
 	for _, pod := range pods {
-		cache.Pods[pod.Name] = &ingress.PodWithRoutes{
+		cache.Pods[pod.Name] = &router.PodWithRoutes{
 			Pod:    pod,
-			Routes: ingress.GetRoutes(config, pod),
+			Routes: router.GetRoutes(config, pod),
 		}
 	}
 
@@ -96,7 +96,7 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 Test for github.com/30x/k8s-router/nginx/config#GetConf with an empty cache
 */
 func TestGetConfNoRoutablePods(t *testing.T) {
-	conf := GetConf(config, &ingress.Cache{})
+	conf := GetConf(config, &router.Cache{})
 
 	if conf != `
 # A very simple nginx configuration file that forces nginx to start as a daemon.
@@ -123,7 +123,7 @@ func TestGetConfNoRoutablePodsCustomPort(t *testing.T) {
 	// Change the config port
 	config.Port = 90
 
-	conf := GetConf(config, &ingress.Cache{})
+	conf := GetConf(config, &router.Cache{})
 
 	if conf != `
 # A very simple nginx configuration file that forces nginx to start as a daemon.

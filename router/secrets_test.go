@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingress
+package router
 
 import (
 	"io/ioutil"
@@ -34,19 +34,19 @@ func init() {
 }
 
 /*
-Test for github.com/30x/k8s-router/ingress/secrets#GetIngressSecretList
+Test for github.com/30x/k8s-router/router/secrets#GetRouterSecretList
 */
-func TestGetIngressSecretList(t *testing.T) {
+func TestGetRouterSecretList(t *testing.T) {
 	kubeClient, err := kubernetes.GetClient()
 
 	if err != nil {
 		t.Fatalf("Failed to create k8s client: %v.", err)
 	}
 
-	secretList, err := GetIngressSecretList(config, kubeClient)
+	secretList, err := GetRouterSecretList(config, kubeClient)
 
 	if err != nil {
-		t.Fatalf("Failed to get the ingress secrets: %v.", err)
+		t.Fatalf("Failed to get the router secrets: %v.", err)
 	}
 
 	for _, secret := range secretList.Items {
@@ -57,7 +57,7 @@ func TestGetIngressSecretList(t *testing.T) {
 }
 
 /*
-Test for github.com/30x/k8s-router/ingress/secrets#UpdateSecretCacheForEvents
+Test for github.com/30x/k8s-router/router/secrets#UpdateSecretCacheForEvents
 */
 func TestUpdateSecretCacheForEvents(t *testing.T) {
 	apiKeyStr := "API-Key"

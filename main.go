@@ -20,20 +20,20 @@ import (
 	"log"
 	"time"
 
-	"github.com/30x/k8s-router/ingress"
 	"github.com/30x/k8s-router/kubernetes"
 	"github.com/30x/k8s-router/nginx"
+	"github.com/30x/k8s-router/router"
 
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/watch"
 )
 
-func initController(config *ingress.Config, kubeClient *client.Client) (*ingress.Cache, watch.Interface, watch.Interface) {
+func initController(config *router.Config, kubeClient *client.Client) (*router.Cache, watch.Interface, watch.Interface) {
 	log.Println("Searching for routable pods")
 
 	// Query the initial list of Pods
-	pods, err := ingress.GetRoutablePodList(config, kubeClient)
+	pods, err := router.GetRoutablePodList(config, kubeClient)
 
 	if err != nil {
 		log.Fatalf("Failed to query the initial list of pods: %v.", err)
@@ -41,22 +41,22 @@ func initController(config *ingress.Config, kubeClient *client.Client) (*ingress
 
 	log.Printf("  Pods found: %d", len(pods.Items))
 
-	// Create a cache to keep track of the ingress "API Keys" and Pods (with routes)
-	cache := &ingress.Cache{
-		Pods:    make(map[string]*ingress.PodWithRoutes),
+	// Create a cache to keep track of the router "API Keys" and Pods (with routes)
+	cache := &router.Cache{
+		Pods:    make(map[string]*router.PodWithRoutes),
 		Secrets: make(map[string]*api.Secret),
 	}
 
 	// Turn the pods into a map based on the pod's name
 	for i, pod := range pods.Items {
-		cache.Pods[pod.Name] = &ingress.PodWithRoutes{
+		cache.Pods[pod.Name] = &router.PodWithRoutes{
 			Pod:    &(pods.Items[i]),
-			Routes: ingress.GetRoutes(config, &pod),
+			Routes: router.GetRoutes(config, &pod),
 		}
 	}
 
 	// Query the initial list of Secrets
-	secrets, err := ingress.GetIngressSecretList(config, kubeClient)
+	secrets, err := router.GetRouterSecretList(config, kubeClient)
 
 	// Turn the secrets into a map based on the secret's namespace
 	for i, secret := range secrets.Items {
@@ -113,7 +113,7 @@ func main() {
 	log.Println("Starting the Kubernetes Router")
 
 	// Get the configuration
-	config, err := ingress.ConfigFromEnv()
+	config, err := router.ConfigFromEnv()
 
 	if err != nil {
 		log.Fatalf("Invalid configuration: %v.", err)
@@ -198,14 +198,14 @@ func main() {
 			log.Printf("%d pod events found", len(podEvents))
 
 			// Update the cache based on the events and check if the server needs to be restarted
-			needsRestart = ingress.UpdatePodCacheForEvents(config, cache.Pods, podEvents)
+			needsRestart = router.UpdatePodCacheForEvents(config, cache.Pods, podEvents)
 		}
 
 		if !needsRestart && len(secretEvents) > 0 {
 			log.Printf("%d secret events found", len(secretEvents))
 
 			// Update the cache based on the events and check if the server needs to be restarted
-			needsRestart = ingress.UpdateSecretCacheForEvents(config, cache.Secrets, secretEvents)
+			needsRestart = router.UpdateSecretCacheForEvents(config, cache.Secrets, secretEvents)
 		}
 
 		// Wrapped in an if/else to limit logging

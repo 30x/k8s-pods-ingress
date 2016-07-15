@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package ingress
+package router
 
 import (
 	"k8s.io/kubernetes/pkg/api"
@@ -22,7 +22,7 @@ import (
 )
 
 /*
-Cache is the structure containing the ingress API Keys and the routable pods cache
+Cache is the structure containing the router API Keys and the routable pods cache
 */
 type Cache struct {
 	Pods    map[string]*PodWithRoutes
