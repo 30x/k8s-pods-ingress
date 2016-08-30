@@ -70,7 +70,7 @@ func initController(config *router.Config, kubeClient *client.Client) (*router.C
 	log.Printf("  Secrets found: %d", len(secrets.Items))
 
 	// Generate the nginx configuration and restart nginx
-	nginx.RestartServer(nginx.GetConf(config, cache), true)
+	nginx.RestartServer(nginx.GetConf(config, cache), false)
 
 	// Get the list options so we can create the watch
 	podWatchOptions := api.ListOptions{
