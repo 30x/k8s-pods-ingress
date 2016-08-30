@@ -94,105 +94,110 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 
 	// Do not process pods that are not running
 	if pod.Status.Phase == api.PodRunning {
-		var hosts []string
-		var pathPairs []*pathPair
+		// Do not process pods without an IP
+		if pod.Status.PodIP != "" {
+			var hosts []string
+			var pathPairs []*pathPair
 
-		annotation, ok := pod.Annotations[config.HostsAnnotation]
+			annotation, ok := pod.Annotations[config.HostsAnnotation]
 
-		// This pod does not have the hosts annotation set
-		if ok {
-			// Process the routing hosts
-			for _, host := range strings.Split(annotation, " ") {
-				valid := hostnameRegex.MatchString(host)
-
-				if !valid {
-					valid = ipRegex.MatchString(host)
+			// This pod does not have the hosts annotation set
+			if ok {
+				// Process the routing hosts
+				for _, host := range strings.Split(annotation, " ") {
+					valid := hostnameRegex.MatchString(host)
 
 					if !valid {
-						log.Printf("    Pod (%s) routing issue: %s (%s) is not a valid hostname/ip\n", config.HostsAnnotation, pod.Name, host)
+						valid = ipRegex.MatchString(host)
 
-						continue
+						if !valid {
+							log.Printf("    Pod (%s) routing issue: %s (%s) is not a valid hostname/ip\n", config.HostsAnnotation, pod.Name, host)
+
+							continue
+						}
 					}
+
+					// Record the host
+					hosts = append(hosts, host)
 				}
 
-				// Record the host
-				hosts = append(hosts, host)
-			}
+				// Do not process the routing paths if there are no valid hosts
+				if len(hosts) > 0 {
+					annotation, ok = pod.Annotations[config.PathsAnnotation]
 
-			// Do not process the routing paths if there are no valid hosts
-			if len(hosts) > 0 {
-				annotation, ok = pod.Annotations[config.PathsAnnotation]
+					if ok {
+						for _, publicPath := range strings.Split(annotation, " ") {
+							pathParts := strings.Split(publicPath, ":")
 
-				if ok {
-					for _, publicPath := range strings.Split(annotation, " ") {
-						pathParts := strings.Split(publicPath, ":")
+							if len(pathParts) == 2 {
+								cPathPair := &pathPair{}
 
-						if len(pathParts) == 2 {
-							cPathPair := &pathPair{}
+								// Validate the port
+								port, err := strconv.Atoi(pathParts[0])
 
-							// Validate the port
-							port, err := strconv.Atoi(pathParts[0])
+								if err == nil && port > 0 && port < 65536 {
+									cPathPair.Port = pathParts[0]
+								} else {
+									log.Printf("    Pod (%s) routing issue: %s port (%s) is not valid\n", config.PathsAnnotation, pod.Name, pathParts[0])
+								}
 
-							if err == nil && port > 0 && port < 65536 {
-								cPathPair.Port = pathParts[0]
-							} else {
-								log.Printf("    Pod (%s) routing issue: %s port (%s) is not valid\n", config.PathsAnnotation, pod.Name, pathParts[0])
-							}
+								// Validate the path (when necessary)
+								if port > 0 {
+									pathSegments := strings.Split(pathParts[1], "/")
+									valid := true
 
-							// Validate the path (when necessary)
-							if port > 0 {
-								pathSegments := strings.Split(pathParts[1], "/")
-								valid := true
+									for i, pathSegment := range pathSegments {
+										// Skip the first and last entry
+										if (i == 0 || i == len(pathSegments)-1) && pathSegment == "" {
+											continue
+										} else if !pathSegmentRegex.MatchString(pathSegment) {
+											log.Printf("    Pod (%s) routing issue: publicPath path (%s) is not valid\n", pod.Name, pathParts[1])
 
-								for i, pathSegment := range pathSegments {
-									// Skip the first and last entry
-									if (i == 0 || i == len(pathSegments)-1) && pathSegment == "" {
-										continue
-									} else if !pathSegmentRegex.MatchString(pathSegment) {
-										log.Printf("    Pod (%s) routing issue: publicPath path (%s) is not valid\n", pod.Name, pathParts[1])
+											valid = false
 
-										valid = false
+											break
+										}
+									}
 
-										break
+									if valid {
+										cPathPair.Path = pathParts[1]
 									}
 								}
 
-								if valid {
-									cPathPair.Path = pathParts[1]
+								if cPathPair.Path != "" && cPathPair.Port != "" {
+									pathPairs = append(pathPairs, cPathPair)
 								}
+							} else {
+								log.Printf("    Pod (%s) routing issue: publicPath (%s) is not a valid PORT:PATH combination\n", pod.Name, annotation)
 							}
+						}
+					} else {
+						log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, config.PathsAnnotation)
+					}
+				}
 
-							if cPathPair.Path != "" && cPathPair.Port != "" {
-								pathPairs = append(pathPairs, cPathPair)
-							}
-						} else {
-							log.Printf("    Pod (%s) routing issue: publicPath (%s) is not a valid PORT:PATH combination\n", pod.Name, annotation)
+				// Turn the hosts and path pairs into routes
+				if hosts != nil && pathPairs != nil {
+					for _, host := range hosts {
+						for _, cPathPair := range pathPairs {
+							routes = append(routes, &Route{
+								Incoming: &Incoming{
+									Host: host,
+									Path: cPathPair.Path,
+								},
+								Outgoing: &Outgoing{
+									IP:   pod.Status.PodIP,
+									Port: cPathPair.Port,
+								},
+							})
 						}
 					}
-				} else {
-					log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, config.PathsAnnotation)
 				}
-			}
-
-			// Turn the hosts and path pairs into routes
-			if hosts != nil && pathPairs != nil {
-				for _, host := range hosts {
-					for _, cPathPair := range pathPairs {
-						routes = append(routes, &Route{
-							Incoming: &Incoming{
-								Host: host,
-								Path: cPathPair.Path,
-							},
-							Outgoing: &Outgoing{
-								IP:   pod.Status.PodIP,
-								Port: cPathPair.Port,
-							},
-						})
-					}
-				}
+			} else {
+				log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, config.HostsAnnotation)
 			}
 		} else {
-			log.Printf("    Pod (%s) is not routable: Missing '%s' annotation\n", pod.Name, config.HostsAnnotation)
+			log.Printf("    Pod (%s) is not routable: Pod does not have an IP\n", pod.Name)
 		}
 	} else {
 		log.Printf("    Pod (%s) is not routable: Not running (%s)\n", pod.Name, pod.Status.Phase)

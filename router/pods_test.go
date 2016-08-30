@@ -122,6 +122,17 @@ func TestGetRoutesNotRunning(t *testing.T) {
 }
 
 /*
+Test for github.com/30x/k8s-router/router/pods#GetRoutes where the pod is running but does not have an IP
+*/
+func TestGetRoutesRunningWithoutIP(t *testing.T) {
+	validateRoutes(t, "pod does not have an IP", []*Route{}, GetRoutes(config, &api.Pod{
+		Status: api.PodStatus{
+			Phase: api.PodRunning,
+		},
+	}))
+}
+
+/*
 Test for github.com/30x/k8s-router/router/pods#GetRoutes where the pod has no routingHosts annotation
 */
 func TestGetRoutesNoTrafficHosts(t *testing.T) {
