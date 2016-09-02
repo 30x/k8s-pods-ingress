@@ -53,7 +53,7 @@ your Pods _(Default: `routingHosts`)_
 * `PATHS_ANNOTATION`: This is the annotation name used to store the space delimited array of routing path configurations
 * `PORT`: This is the port that nginx will listen on _(Default: `80`)_
 for your Pods _(Default: `routingPaths`)_
-* `ROUTING_LABEL_SELECTOR`: This is the [label selector](http://kubernetes.io/docs/user-guide/labels/#label-selectors)
+* `ROUTABLE_LABEL_SELECTOR`: This is the [label selector](http://kubernetes.io/docs/user-guide/labels/#label-selectors)
 used to identify Pods that are marked for routing _(Default: `routable=true`)_
 
 # Security
