@@ -58,13 +58,13 @@ func initController(config *router.Config, kubeClient *client.Client) (*router.C
 	// Query the initial list of Secrets
 	secrets, err := router.GetRouterSecretList(config, kubeClient)
 
+	if err != nil {
+		log.Fatalf("Failed to query the initial list of secrets: %v", err)
+	}
+
 	// Turn the secrets into a map based on the secret's namespace
 	for i, secret := range secrets.Items {
 		cache.Secrets[secret.Namespace] = &(secrets.Items[i])
-	}
-
-	if err != nil {
-		log.Fatalf("Failed to query the initial list of secrets: %v", err)
 	}
 
 	log.Printf("  Secrets found: %d", len(secrets.Items))

@@ -1,5 +1,9 @@
 # k8s-router Releases
 
+## 1.0.5 (2016-09-02)
+
+* Fixed bug where error check didn't happen in the right spot
+
 ## 1.0.4 (2016-08-29)
 
 * Fixed bug where we assumed that a running `Pod` meant the `Pod` had an IP _(Issue #38)_
