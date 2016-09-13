@@ -73,7 +73,7 @@ daemon on;
 
   # Pass through the appropriate headers
   proxy_set_header Connection $p_connection;
-  proxy_set_header Host $host;
+  proxy_set_header Host $http_host;
   proxy_set_header Upgrade $http_upgrade;
 `
 	nginxConfTmpl = `
