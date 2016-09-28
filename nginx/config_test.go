@@ -178,6 +178,20 @@ http {` + httpConfPreambleTmpl + `
 			Name:      "testing",
 			Namespace: "testing",
 		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(80),
+						},
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+					},
+				},
+			},
+		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
 			PodIP: "10.244.1.16",
@@ -226,6 +240,20 @@ http {` + httpConfPreambleTmpl + `
 			},
 			Name:      "testing",
 			Namespace: "testing",
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(80),
+						},
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+					},
+				},
+			},
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
@@ -279,6 +307,17 @@ http {` + httpConfPreambleTmpl + `
 				Name:      "testing",
 				Namespace: "testing",
 			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(3000),
+							},
+						},
+					},
+				},
+			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
 				PodIP: "10.244.1.16",
@@ -292,6 +331,17 @@ http {` + httpConfPreambleTmpl + `
 				},
 				Name:      "testing2",
 				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+					},
+				},
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -344,6 +394,17 @@ http {` + httpConfPreambleTmpl + `
 				Name:      "testing",
 				Namespace: "testing",
 			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+					},
+				},
+			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
 				PodIP: "10.244.1.16",
@@ -358,6 +419,17 @@ http {` + httpConfPreambleTmpl + `
 				Name:      "testing2",
 				Namespace: "testing",
 			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+					},
+				},
+			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
 				PodIP: "10.244.1.17",
@@ -371,6 +443,17 @@ http {` + httpConfPreambleTmpl + `
 				},
 				Name:      "testing3",
 				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(3000),
+							},
+						},
+					},
+				},
 			},
 			Status: api.PodStatus{
 				Phase: api.PodRunning,
@@ -417,6 +500,17 @@ http {` + httpConfPreambleTmpl + `
 			},
 			Name:      "testing",
 			Namespace: "testing",
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(80),
+						},
+					},
+				},
+			},
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
@@ -476,6 +570,17 @@ http {` + httpConfPreambleTmpl + `
 			},
 			Name:      "testing",
 			Namespace: "testing",
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(80),
+						},
+					},
+				},
+			},
 		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,

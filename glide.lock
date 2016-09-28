@@ -1,37 +1,93 @@
-hash: 3c692a5990e30826801d3690ddfd335548fba7c37e76a2dac9a7c18db04cae7d
-updated: 2016-06-09T13:59:33.792084363-06:00
+hash: 927780719238b01a74704d85ffc3bd53bd1e21b104c7701ae80b3e63567f4a0d
+updated: 2016-09-28T14:09:57.746768022-06:00
 imports:
-- name: bitbucket.org/ww/goautoneg
-  version: '***'
 - name: github.com/beorn7/perks
-  version: b965b613227fddccbfffe13eae360ed3fa822f8d
+  version: 3ac7bf7a47d159a033b107610db8a1b6575507a4
   subpackages:
   - quantile
 - name: github.com/blang/semver
   version: 31b736133b98f26d5e078ec9eb591666edfd091f
+- name: github.com/coreos/go-oidc
+  version: 5cf2aa52da8c574d3aa4458f471ad6ae2240fe6b
+  subpackages:
+  - http
+  - jose
+  - key
+  - oauth2
+  - oidc
+- name: github.com/coreos/go-systemd
+  version: 4484981625c1a6a2ecb40a390fcb6a9bcfee76e3
+  subpackages:
+  - activation
+  - daemon
+  - dbus
+  - journal
+  - unit
+  - util
+- name: github.com/coreos/pkg
+  version: 7f080b6c11ac2d2347c3cd7521e810207ea1a041
+  subpackages:
+  - capnslog
+  - dlopen
+  - health
+  - httputil
+  - timeutil
 - name: github.com/davecgh/go-spew
-  version: 3e6e67c4dcea3ac2f25fd4731abc0e1deaf36216
+  version: 5215b55f46b2b919f50a1df0eaa5886afe4e3b3d
   subpackages:
   - spew
+- name: github.com/docker/distribution
+  version: cd27f179f2c10c5d300e6d09025b538c475b0d51
+  subpackages:
+  - digest
+  - reference
 - name: github.com/docker/docker
   version: 0f5c9d301b9b1cca66b3ea0f9dec3b5317d3686d
   subpackages:
   - pkg/jsonmessage
   - pkg/mount
-  - pkg/parsers
+  - pkg/stdcopy
   - pkg/symlink
   - pkg/term
+  - pkg/term/winconsole
   - pkg/timeutils
   - pkg/units
 - name: github.com/docker/go-units
   version: 0bbddae09c5a5419a8c6dcdd7ff90da3d450393b
 - name: github.com/emicklei/go-restful
-  version: 777bb3f19bcafe2575ffb2a3e46af92509ae9594
+  version: 7c47e2558a0bbbaba9ecab06bc6681e73028a28a
   subpackages:
-  - swagger
   - log
+  - swagger
 - name: github.com/ghodss/yaml
   version: 73d445a93680fa1a78ae23a5839bad48f32ba1ee
+- name: github.com/gogo/protobuf
+  version: 82d16f734d6d871204a3feb1a73cb220cc92574c
+  subpackages:
+  - gogoproto
+  - plugin/defaultcheck
+  - plugin/description
+  - plugin/embedcheck
+  - plugin/enumstringer
+  - plugin/equal
+  - plugin/face
+  - plugin/gostring
+  - plugin/grpc
+  - plugin/marshalto
+  - plugin/oneofcheck
+  - plugin/populate
+  - plugin/size
+  - plugin/stringer
+  - plugin/testgen
+  - plugin/union
+  - plugin/unmarshal
+  - proto
+  - protoc-gen-gogo/descriptor
+  - protoc-gen-gogo/generator
+  - protoc-gen-gogo/plugin
+  - sortkeys
+  - vanity
+  - vanity/command
 - name: github.com/golang/glog
   version: 44145f04b68cf362d9c4df2182967c2275eaefed
 - name: github.com/golang/protobuf
@@ -39,28 +95,52 @@ imports:
   subpackages:
   - proto
 - name: github.com/google/cadvisor
-  version: 546a3771589bdb356777c646c6eca24914fdd48b
+  version: 4dbefc9b671b81257973a33211fb12370c1a526e
   subpackages:
   - api
   - cache/memory
   - collector
   - container
+  - container/common
+  - container/docker
+  - container/libcontainer
+  - container/raw
+  - container/rkt
+  - container/systemd
+  - devicemapper
   - events
   - fs
   - healthz
   - http
+  - http/mux
   - info/v1
+  - info/v1/test
   - info/v2
+  - machine
   - manager
+  - manager/watcher
+  - manager/watcher/raw
+  - manager/watcher/rkt
   - metrics
   - pages
+  - pages/static
   - storage
   - summary
   - utils
+  - utils/cloudinfo
+  - utils/cpuload
+  - utils/cpuload/netlink
+  - utils/docker
+  - utils/oomparser
+  - utils/sysfs
+  - utils/sysinfo
+  - utils/tail
   - validate
   - version
 - name: github.com/google/gofuzz
   version: bbcb9da2d746f8bdbd6a936686a0a6067ada0ec5
+- name: github.com/jonboulle/clockwork
+  version: 3f831b65b61282ba6bece21b91beea2edc4c887a
 - name: github.com/juju/ratelimit
   version: 77ed1c8a01217656d2080ad51981f6e99adaa177
 - name: github.com/matttproud/golang_protobuf_extensions
@@ -71,10 +151,20 @@ imports:
   version: 7ca2aa4873aea7cb4265b1726acb24b90d8726c6
   subpackages:
   - libcontainer
-  - libcontainer/cgroups/fs
-  - libcontainer/configs
+  - libcontainer/apparmor
   - libcontainer/cgroups
+  - libcontainer/cgroups/fs
+  - libcontainer/cgroups/systemd
+  - libcontainer/configs
+  - libcontainer/configs/validate
+  - libcontainer/criurpc
+  - libcontainer/label
+  - libcontainer/seccomp
+  - libcontainer/selinux
+  - libcontainer/stacktrace
   - libcontainer/system
+  - libcontainer/user
+  - libcontainer/utils
 - name: github.com/pborman/uuid
   version: ca53cad383cad2479bbba7f7a1a05797ec1386e4
 - name: github.com/prometheus/client_golang
@@ -86,9 +176,10 @@ imports:
   subpackages:
   - go
 - name: github.com/prometheus/common
-  version: ef7a9a5fb138aa5d3a19988537606226869a0390
+  version: a6ab08426bb262e2d190097751f5cfd1cfdfd17d
   subpackages:
   - expfmt
+  - internal/bitbucket.org/ww/goautoneg
   - model
 - name: github.com/prometheus/procfs
   version: 490cc6eb5fa45bf8a8b7b73c8bc82a8160e8531d
@@ -98,90 +189,142 @@ imports:
   version: f4485b318aadd133842532f841dc205a8e339d74
   subpackages:
   - codec
+  - codec/codecgen
 - name: golang.org/x/net
-  version: c2528b2dd8352441850638a8bb678c2ad056fd3e
+  version: 62685c2d7ca23c807425dca88b11a3e2323dab41
   subpackages:
   - context
+  - context/ctxhttp
   - html
+  - html/atom
   - http2
+  - http2/hpack
   - internal/timeseries
+  - proxy
   - trace
   - websocket
+- name: golang.org/x/oauth2
+  version: b5adcc2dcdf009d0391547edc6ecbaff889f5bb9
+  subpackages:
+  - google
+  - internal
+  - jws
+  - jwt
+- name: google.golang.org/appengine
+  version: 12d5545dc1cfa6047a286d5e853841b6471f4c19
+  subpackages:
+  - internal
+  - internal/app_identity
+  - internal/base
+  - internal/datastore
+  - internal/log
+  - internal/modules
+  - internal/remote_api
+  - internal/urlfetch
+  - urlfetch
+- name: google.golang.org/cloud
+  version: eb47ba841d53d93506cfbfbc03927daf9cc48f88
+  subpackages:
+  - compute/metadata
+  - internal
+- name: gopkg.in/inf.v0
+  version: 3887ee99ecf07df5b447e9b00d9c0b2adaa9f3e4
 - name: gopkg.in/yaml.v2
-  version: d466437aa4adc35830964cffc5b5f262c63ddcb4
+  version: a83829b6f1293c91addabc89d0571c246397bbf4
 - name: k8s.io/kubernetes
-  version: 3d6adabd365ed5f81a2a3b843c63626c27e4034d
+  version: 283137936a498aed572ee22af6774b6fb6e9fd94
   subpackages:
   - pkg/api
-  - pkg/client/unversioned
-  - pkg/watch
-  - pkg/fields
-  - pkg/labels
-  - pkg/util/validation
-  - pkg/client/restclient
-  - pkg/api/meta
-  - pkg/api/resource
-  - pkg/api/unversioned
-  - pkg/auth/user
-  - pkg/conversion
-  - pkg/runtime
-  - pkg/runtime/serializer
-  - pkg/types
-  - pkg/util
-  - pkg/util/intstr
-  - pkg/util/rand
-  - pkg/util/sets
+  - pkg/api/endpoints
   - pkg/api/errors
   - pkg/api/install
-  - pkg/apimachinery/registered
-  - pkg/apis/authorization/install
-  - pkg/apis/autoscaling
-  - pkg/apis/autoscaling/install
-  - pkg/apis/batch
-  - pkg/apis/batch/install
-  - pkg/apis/componentconfig/install
-  - pkg/apis/extensions
-  - pkg/apis/extensions/install
-  - pkg/apis/metrics/install
-  - pkg/client/typed/discovery
-  - pkg/util/net
-  - pkg/util/wait
-  - pkg/version
-  - pkg/util/runtime
+  - pkg/api/meta
+  - pkg/api/meta/metatypes
+  - pkg/api/pod
+  - pkg/api/resource
+  - pkg/api/service
+  - pkg/api/unversioned
+  - pkg/api/unversioned/validation
+  - pkg/api/util
   - pkg/api/v1
   - pkg/api/validation
-  - pkg/client/metrics
-  - pkg/client/transport
-  - pkg/watch/json
-  - pkg/util/errors
-  - third_party/forked/reflect
-  - pkg/conversion/queryparams
-  - pkg/runtime/serializer/json
-  - pkg/runtime/serializer/recognizer
-  - pkg/runtime/serializer/versioning
-  - pkg/util/integer
-  - pkg/util/validation/field
   - pkg/apimachinery
+  - pkg/apimachinery/registered
+  - pkg/apis/apps
+  - pkg/apis/apps/install
+  - pkg/apis/apps/v1alpha1
+  - pkg/apis/authentication.k8s.io
+  - pkg/apis/authentication.k8s.io/install
+  - pkg/apis/authentication.k8s.io/v1beta1
   - pkg/apis/authorization
+  - pkg/apis/authorization/install
   - pkg/apis/authorization/v1beta1
+  - pkg/apis/autoscaling
+  - pkg/apis/autoscaling/install
   - pkg/apis/autoscaling/v1
+  - pkg/apis/batch
+  - pkg/apis/batch/install
   - pkg/apis/batch/v1
+  - pkg/apis/batch/v2alpha1
   - pkg/apis/componentconfig
+  - pkg/apis/componentconfig/install
   - pkg/apis/componentconfig/v1alpha1
+  - pkg/apis/extensions
+  - pkg/apis/extensions/install
   - pkg/apis/extensions/v1beta1
-  - pkg/apis/metrics
-  - pkg/apis/metrics/v1alpha1
-  - pkg/util/parsers
-  - pkg/api/endpoints
-  - pkg/api/pod
-  - pkg/api/service
-  - pkg/api/util
+  - pkg/apis/policy
+  - pkg/apis/policy/install
+  - pkg/apis/policy/v1alpha1
+  - pkg/apis/rbac
+  - pkg/apis/rbac/install
+  - pkg/apis/rbac/v1alpha1
+  - pkg/auth/user
   - pkg/capabilities
-  - pkg/util/yaml
+  - pkg/client/metrics
+  - pkg/client/restclient
+  - pkg/client/transport
+  - pkg/client/typed/discovery
+  - pkg/client/unversioned
+  - pkg/client/unversioned/clientcmd/api
+  - pkg/conversion
+  - pkg/conversion/queryparams
+  - pkg/fields
   - pkg/kubelet/qos
+  - pkg/kubelet/qos/util
+  - pkg/labels
   - pkg/master/ports
+  - pkg/runtime
+  - pkg/runtime/serializer
+  - pkg/runtime/serializer/json
+  - pkg/runtime/serializer/protobuf
+  - pkg/runtime/serializer/recognizer
+  - pkg/runtime/serializer/streaming
+  - pkg/runtime/serializer/versioning
+  - pkg/types
+  - pkg/util
+  - pkg/util/crypto
+  - pkg/util/errors
+  - pkg/util/flowcontrol
+  - pkg/util/framer
   - pkg/util/hash
+  - pkg/util/integer
+  - pkg/util/intstr
+  - pkg/util/json
+  - pkg/util/net
   - pkg/util/net/sets
-- name: speter.net/go/exp/math/dec/inf
-  version: 42ca6cd68aa922bc3f32f1e056e61b65945d9ad7
-devImports: []
+  - pkg/util/parsers
+  - pkg/util/rand
+  - pkg/util/runtime
+  - pkg/util/sets
+  - pkg/util/validation
+  - pkg/util/validation/field
+  - pkg/util/wait
+  - pkg/util/yaml
+  - pkg/version
+  - pkg/watch
+  - pkg/watch/versioned
+  - plugin/pkg/client/auth
+  - plugin/pkg/client/auth/gcp
+  - plugin/pkg/client/auth/oidc
+  - third_party/forked/reflect
+testImports: []
