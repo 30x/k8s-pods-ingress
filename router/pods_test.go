@@ -201,6 +201,30 @@ func TestGetRoutesInvalidPublicPathsPort(t *testing.T) {
 			Phase: api.PodRunning,
 		},
 	}))
+
+	// Port is not an exposed container port
+	validateRoutes(t, "pod has an invalid routingPaths port (port > 65536)", []*Route{}, GetRoutes(config, &api.Pod{
+		ObjectMeta: api.ObjectMeta{
+			Annotations: map[string]string{
+				"routingHosts": "test.github.com",
+				"routingPaths": "81:/",
+			},
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(80),
+						},
+					},
+				},
+			},
+		},
+		Status: api.PodStatus{
+			Phase: api.PodRunning,
+		},
+	}))
 }
 
 /*
@@ -213,6 +237,17 @@ func TestGetRoutesInvalidPublicPathsPath(t *testing.T) {
 			Annotations: map[string]string{
 				"routingHosts": "test.github.com",
 				"routingPaths": "3000:/people/%ZZ",
+			},
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+					},
+				},
 			},
 		},
 		Status: api.PodStatus{
@@ -252,6 +287,17 @@ func TestGetRoutesValidPods(t *testing.T) {
 				"routingPaths": port1 + ":" + path1,
 			},
 		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+					},
+				},
+			},
+		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
 			PodIP: ip,
@@ -287,6 +333,20 @@ func TestGetRoutesValidPods(t *testing.T) {
 				"routingPaths": port1 + ":" + path1 + " " + port2 + ":" + path2,
 			},
 		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+						api.ContainerPort{
+							ContainerPort: int32(3001),
+						},
+					},
+				},
+			},
+		},
 		Status: api.PodStatus{
 			Phase: api.PodRunning,
 			PodIP: ip,
@@ -320,6 +380,17 @@ func TestGetRoutesValidPods(t *testing.T) {
 			Annotations: map[string]string{
 				"routingHosts": host1 + " " + host2,
 				"routingPaths": port1 + ":" + path1,
+			},
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+					},
+				},
 			},
 		},
 		Status: api.PodStatus{
@@ -375,6 +446,20 @@ func TestGetRoutesValidPods(t *testing.T) {
 			Annotations: map[string]string{
 				"routingHosts": host1 + " " + host2,
 				"routingPaths": port1 + ":" + path1 + " " + port2 + ":" + path2,
+			},
+		},
+		Spec: api.PodSpec{
+			Containers: []api.Container{
+				api.Container{
+					Ports: []api.ContainerPort{
+						api.ContainerPort{
+							ContainerPort: int32(3000),
+						},
+						api.ContainerPort{
+							ContainerPort: int32(3001),
+						},
+					},
+				},
 			},
 		},
 		Status: api.PodStatus{

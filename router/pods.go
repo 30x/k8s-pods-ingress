@@ -23,6 +23,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/30x/k8s-router/utils"
+
 	"k8s.io/kubernetes/pkg/api"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 	"k8s.io/kubernetes/pkg/fields"
@@ -69,6 +71,15 @@ func init() {
 	pathSegmentRegex = compileRegex(pathSegmentRegexStr)
 }
 
+func isContainerPort(ports []int32, port int32) bool {
+	for _, vPort := range ports {
+		if vPort == port {
+			return true
+		}
+	}
+	return false
+}
+
 /*
 GetRoutablePodList returns the routable pods list.
 */
@@ -98,6 +109,7 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 		if pod.Status.PodIP != "" {
 			var hosts []string
 			var pathPairs []*pathPair
+			var ports []int32
 
 			annotation, ok := pod.Annotations[config.HostsAnnotation]
 
@@ -125,6 +137,13 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 				if len(hosts) > 0 {
 					annotation, ok = pod.Annotations[config.PathsAnnotation]
 
+					// Create a list of valid routing ports
+					for _, container := range pod.Spec.Containers {
+						for _, port := range container.Ports {
+							ports = append(ports, port.ContainerPort)
+						}
+					}
+
 					if ok {
 						for _, publicPath := range strings.Split(annotation, " ") {
 							pathParts := strings.Split(publicPath, ":")
@@ -135,10 +154,12 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 								// Validate the port
 								port, err := strconv.Atoi(pathParts[0])
 
-								if err == nil && port > 0 && port < 65536 {
-									cPathPair.Port = pathParts[0]
-								} else {
+								if err != nil || !utils.IsValidPort(port) {
 									log.Printf("    Pod (%s) routing issue: %s port (%s) is not valid\n", config.PathsAnnotation, pod.Name, pathParts[0])
+								} else if !isContainerPort(ports, int32(port)) {
+									log.Printf("    Pod (%s) routing issue: %s port (%s) is not an exposed container port\n", config.PathsAnnotation, pod.Name, pathParts[0])
+								} else {
+									cPathPair.Port = pathParts[0]
 								}
 
 								// Validate the path (when necessary)

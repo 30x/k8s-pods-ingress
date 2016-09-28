@@ -109,9 +109,12 @@ func ConfigFromEnv() (*Config, error) {
 		}
 	}
 
-	if !validation.IsQualifiedName(strings.ToLower(config.HostsAnnotation)) {
+	hostErrs := validation.IsQualifiedName(strings.ToLower(config.HostsAnnotation))
+	pathErrs := validation.IsQualifiedName(strings.ToLower(config.PathsAnnotation))
+
+	if len(hostErrs) > 0 {
 		return nil, fmt.Errorf(ErrMsgTmplInvalidAnnotationName, EnvVarHostsAnnotation, config.HostsAnnotation)
-	} else if !validation.IsQualifiedName(strings.ToLower(config.PathsAnnotation)) {
+	} else if len(pathErrs) > 0 {
 		return nil, fmt.Errorf(ErrMsgTmplInvalidAnnotationName, EnvVarPathsAnnotation, config.PathsAnnotation)
 	}
 
