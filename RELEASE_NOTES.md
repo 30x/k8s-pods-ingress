@@ -3,6 +3,7 @@
 ## TBD
 
 * Enhanced `Pod` routability validation to check the routing path container against the list of container ports _(Issue #12)_
+* Fix logging of unroutable pods _(Issue #46)_
 
 ## 1.0.5 (2016-09-02)
 

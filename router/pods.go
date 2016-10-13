@@ -123,7 +123,7 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 						valid = ipRegex.MatchString(host)
 
 						if !valid {
-							log.Printf("    Pod (%s) routing issue: %s (%s) is not a valid hostname/ip\n", config.HostsAnnotation, pod.Name, host)
+							log.Printf("    Pod (%s) routing issue: %s (%s) is not a valid hostname/ip\n", pod.Name, config.HostsAnnotation, host)
 
 							continue
 						}
@@ -155,9 +155,9 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 								port, err := strconv.Atoi(pathParts[0])
 
 								if err != nil || !utils.IsValidPort(port) {
-									log.Printf("    Pod (%s) routing issue: %s port (%s) is not valid\n", config.PathsAnnotation, pod.Name, pathParts[0])
+									log.Printf("    Pod (%s) routing issue: %s port (%s) is not valid\n", pod.Name, config.PathsAnnotation, pathParts[0])
 								} else if !isContainerPort(ports, int32(port)) {
-									log.Printf("    Pod (%s) routing issue: %s port (%s) is not an exposed container port\n", config.PathsAnnotation, pod.Name, pathParts[0])
+									log.Printf("    Pod (%s) routing issue: %s port (%s) is not an exposed container port\n", pod.Name, config.PathsAnnotation, pathParts[0])
 								} else {
 									cPathPair.Port = pathParts[0]
 								}
