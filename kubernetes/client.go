@@ -21,13 +21,18 @@ import (
 	"os"
 
 	"k8s.io/kubernetes/pkg/client/restclient"
+	"k8s.io/kubernetes/pkg/client/unversioned/clientcmd"
 	client "k8s.io/kubernetes/pkg/client/unversioned"
 )
 
-const (
-	// ErrNeedsKubeHostSet is the error used when the KUBE_HOST is not set and ran outside of Kubernetes
-	ErrNeedsKubeHostSet = "When ran outside of Kubernetes, the KUBE_HOST environment variable is required"
-)
+// Check if running in cluster
+func RunningInCluster() (bool)  {
+	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); err == nil {
+		return true;
+	} else {
+		return false;
+	}
+}
 
 /*
 GetClient returns a Kubernetes client.
@@ -36,7 +41,7 @@ func GetClient() (*client.Client, error) {
 	var kubeConfig restclient.Config
 
 	// Set the Kubernetes configuration based on the environment
-	if _, err := os.Stat("/var/run/secrets/kubernetes.io/serviceaccount/token"); err == nil {
+	if RunningInCluster() {
 		config, err := restclient.InClusterConfig()
 
 		if err != nil {
@@ -45,14 +50,16 @@ func GetClient() (*client.Client, error) {
 
 		kubeConfig = *config
 	} else {
-		kubeConfig = restclient.Config{
-			Host: os.Getenv("KUBE_HOST"),
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		configOverrides := &clientcmd.ConfigOverrides{}
+		config := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
+		tmpKubeConfig, err := config.ClientConfig()
+		if err != nil {
+			return nil, fmt.Errorf("Failed to load local kube config: %v", err)
 		}
-
-		if kubeConfig.Host == "" {
-			return nil, fmt.Errorf(ErrNeedsKubeHostSet)
-		}
+		kubeConfig = *tmpKubeConfig;
 	}
+
 
 	// Create the Kubernetes client based on the configuration
 	return client.New(&kubeConfig)

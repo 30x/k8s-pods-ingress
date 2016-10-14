@@ -480,7 +480,8 @@ outside the scope of this example.
 # Building and Running
 
 If you're testing this outside of Kubernetes, you can just use `go build` followed by
-`KUBE_HOST=... ./k8s-router`.  If you're building this to run on Kubernetes, you'll need to do the following:
+`./k8s-router` to run in mock mode. Will detect Kubernetes cluster config based on kube config.
+If you're building this to run on Kubernetes, you'll need to do the following:
 
 * `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-router .`
 * `docker build ...`
@@ -498,8 +499,7 @@ example DaemonSet for deploying the k8s-router as an ingress controller to Kuber
 * `kubectl create -f examples/ingress-daemonset.yaml`
 
 **Note:** This router is written to be ran within Kubernetes but for testing purposes, it can be ran outside of
-Kubernetes.  When ran outside of Kubernetes, you will have to set the `KUBE_HOST` environment variable to point to the
-Kubernetes API.  _(Example: `http://192.168.64.2:8080`)_  When ran outside the container, nginx itself will not be
+Kubernetes.  When ran outside of Kubernetes, you will have have a kube config file. When ran outside the container, nginx itself will not be
 started and its configuration file will not be written to disk, only printed to stdout.  This might change in the future
 but for now, this support is only as a convenience.
 
