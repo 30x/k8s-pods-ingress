@@ -106,8 +106,9 @@ configure this, please review the design document located here:
 
 https://github.com/30x/k8s-router#design
 
-This application is written to run inside the Kubernetes cluster but for outside if a proper kube config is detected. Will
-run in mock as a result.
+This application is written to run inside the Kubernetes cluster but can be run outside the Kubernetes cluster if a
+proper kube config is detected.  (This can be useful for inspecting the routing table of an external Kubernetes
+cluster.)
 */
 func main() {
 	log.Println("Starting the Kubernetes Router")

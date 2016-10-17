@@ -479,8 +479,12 @@ outside the scope of this example.
 
 # Building and Running
 
-If you're testing this outside of Kubernetes, you can just use `go build` followed by
-`./k8s-router` to run in mock mode. Will detect Kubernetes cluster config based on kube config.
+If you want to run `k8s-router` in _mock mode_, you can use `go build` followed by `./k8s-router`.  Running in mock mode
+means that `nginx` is not actually started and managed, nor is any actual routing performed.  `k8s-router` will use your
+`kubectl` configuration to identify the cluster connection details by using the current context `kubectl` is configured
+for.  This is very useful in the event you want to connect to an external Kubernetes cluster and see the generated
+routing configuration.
+
 If you're building this to run on Kubernetes, you'll need to do the following:
 
 * `CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-router .`
