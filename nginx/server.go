@@ -24,9 +24,11 @@ import (
 	"os/exec"
 )
 
+// If running locally enabled mock mode to not call sh commands or write config
+var RunInMockMode bool
+
 func shellOut(cmd string, exitOnFailure bool) {
-	// If we are running outside of Kubenetes, KUBE_HOST will be set in which case we do not want to start nginx
-	if os.Getenv("KUBE_HOST") != "" {
+	if RunInMockMode {
 		return
 	}
 
@@ -46,17 +48,18 @@ func shellOut(cmd string, exitOnFailure bool) {
 func writeNginxConf(conf string) {
 	log.Println(conf)
 
-	// If we are running outside of Kuberenetes, KUBE_HOST will be set in which case we do not want to write nginx.conf
-	if os.Getenv("KUBE_HOST") == "" {
-		// Create the nginx.conf file based on the template
-		if w, err := os.Create(NginxConfPath); err != nil {
-			log.Fatalf("Failed to open %s: %v", NginxConfPath, err)
-		} else if _, err := io.WriteString(w, conf); err != nil {
-			log.Fatalf("Failed to write template %v", err)
-		}
-
-		log.Printf("Wrote nginx configuration to %s\n", NginxConfPath)
+	if RunInMockMode {
+		return;
 	}
+
+	// Create the nginx.conf file based on the template
+	if w, err := os.Create(NginxConfPath); err != nil {
+		log.Fatalf("Failed to open %s: %v", NginxConfPath, err)
+	} else if _, err := io.WriteString(w, conf); err != nil {
+		log.Fatalf("Failed to write template %v", err)
+	}
+
+	log.Printf("Wrote nginx configuration to %s\n", NginxConfPath)
 }
 
 /*

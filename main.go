@@ -106,8 +106,8 @@ configure this, please review the design document located here:
 
 https://github.com/30x/k8s-router#design
 
-This application is written to run inside the Kubernetes cluster but for outside of Kubernetes you can set the
-`KUBE_HOST` environment variable to run in a mock mode.
+This application is written to run inside the Kubernetes cluster but for outside if a proper kube config is detected. Will
+run in mock as a result.
 */
 func main() {
 	log.Println("Starting the Kubernetes Router")
@@ -136,6 +136,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create client: %v.", err)
 	}
+
+	// Don't write nginx conf when not in cluster
+	nginx.RunInMockMode = !(kubernetes.RunningInCluster())
 
 	// Start nginx with the default configuration to start nginx as a daemon
 	nginx.StartServer(nginx.GetDefaultConf(config))
