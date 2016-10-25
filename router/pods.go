@@ -98,6 +98,9 @@ func GetRoutablePodList(config *Config, kubeClient *client.Client) (*api.PodList
 }
 
 
+/*
+ Calculate hash for hosts and paths annotations to compare when pod is modified
+*/
 func calculateAnnotationHash(config *Config, pod *api.Pod) (uint64) {
 	h := fnv.New64()
 	h.Write([]byte(pod.Annotations[config.HostsAnnotation]))

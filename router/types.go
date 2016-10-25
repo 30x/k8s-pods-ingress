@@ -26,7 +26,7 @@ Cache is the structure containing the router API Keys and the routable pods cach
 */
 type Cache struct {
 	Pods    map[string]*PodWithRoutes
-	Secrets map[string]*api.Secret
+	Secrets map[string][]byte
 }
 
 /*

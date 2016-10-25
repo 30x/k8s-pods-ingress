@@ -71,7 +71,7 @@ func resetConf() {
 func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets []*api.Secret) {
 	cache := &router.Cache{
 		Pods:    make(map[string]*router.PodWithRoutes),
-		Secrets: make(map[string]*api.Secret),
+		Secrets: make(map[string][]byte),
 	}
 
 	for _, pod := range pods {
@@ -79,7 +79,7 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 	}
 
 	for _, secret := range secrets {
-		cache.Secrets[secret.Namespace] = secret
+		cache.Secrets[secret.Namespace] = router.ConvertSecretToModel(config, secret)
 	}
 
 	actual := GetConf(config, cache)

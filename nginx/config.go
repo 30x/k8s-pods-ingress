@@ -229,7 +229,7 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 
 			if ok {
 				// There is guaranteed to be an API Key so no need to double check
-				locationSecret = base64.StdEncoding.EncodeToString(secret.Data[config.APIKeySecretDataField])
+				locationSecret = base64.StdEncoding.EncodeToString(secret)
 			}
 
 			location, ok := host.Locations[route.Incoming.Path]
