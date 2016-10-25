@@ -49,10 +49,7 @@ func initController(config *router.Config, kubeClient *client.Client) (*router.C
 
 	// Turn the pods into a map based on the pod's name
 	for i, pod := range pods.Items {
-		cache.Pods[pod.Name] = &router.PodWithRoutes{
-			Pod:    &(pods.Items[i]),
-			Routes: router.GetRoutes(config, &pod),
-		}
+		cache.Pods[pod.Name] = router.ConvertPodToModel(config, &(pods.Items[i]));
 	}
 
 	// Query the initial list of Secrets

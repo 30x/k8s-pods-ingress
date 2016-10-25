@@ -75,10 +75,7 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 	}
 
 	for _, pod := range pods {
-		cache.Pods[pod.Name] = &router.PodWithRoutes{
-			Pod:    pod,
-			Routes: router.GetRoutes(config, pod),
-		}
+		cache.Pods[pod.Name] = router.ConvertPodToModel(config, pod)
 	}
 
 	for _, secret := range secrets {

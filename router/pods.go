@@ -19,7 +19,7 @@ package router
 import (
 	"log"
 	"strconv"
-
+	"hash/fnv"
 	"regexp"
 	"strings"
 
@@ -95,6 +95,27 @@ func GetRoutablePodList(config *Config, kubeClient *client.Client) (*api.PodList
 	}
 
 	return podList, nil
+}
+
+
+func calculateAnnotationHash(config *Config, pod *api.Pod) (uint64) {
+	h := fnv.New64()
+	h.Write([]byte(pod.Annotations[config.HostsAnnotation]))
+	h.Write([]byte(pod.Annotations[config.PathsAnnotation]))
+	return h.Sum64()
+}
+
+/*
+ Converts a Kubernetes pod model to our model
+*/
+func ConvertPodToModel(config *Config, pod *api.Pod) (*PodWithRoutes) {
+	return &PodWithRoutes{
+		Name: pod.Name,
+		Namespace: pod.Namespace,
+		Status: pod.Status.Phase,
+		AnnotationHash: calculateAnnotationHash(config, pod),
+		Routes: GetRoutes(config, pod),
+	}
 }
 
 /*
@@ -243,10 +264,7 @@ func UpdatePodCacheForEvents(config *Config, cache map[string]*PodWithRoutes, ev
 		case watch.Added:
 			// This event is likely never going to be handled in the real world because most pod add events happen prior to
 			// pod being routable but it's here just in case.
-			cache[pod.Name] = &PodWithRoutes{
-				Pod:    pod,
-				Routes: GetRoutes(config, pod),
-			}
+			cache[pod.Name] = ConvertPodToModel(config, pod)
 
 			needsRestart = len(cache[pod.Name].Routes) > 0
 
@@ -262,16 +280,12 @@ func UpdatePodCacheForEvents(config *Config, cache map[string]*PodWithRoutes, ev
 				cached, ok := cache[pod.Name]
 
 				// If anything routing related changes, trigger a server restart
-				if !ok ||
-					pod.Annotations[config.HostsAnnotation] != cached.Pod.Annotations[config.HostsAnnotation] ||
-					pod.Annotations[config.PathsAnnotation] != cached.Pod.Annotations[config.PathsAnnotation] ||
-					pod.Status.Phase != cached.Pod.Status.Phase {
+				if !ok || calculateAnnotationHash(config, pod) != cached.AnnotationHash || pod.Status.Phase != cached.Status {
 					needsRestart = true
 				}
-
+				
 				// Add/Update the cache entry
-				cache[pod.Name].Pod = pod
-				cache[pod.Name].Routes = GetRoutes(config, pod)
+				cache[pod.Name] = ConvertPodToModel(config, pod)
 			} else {
 				log.Println("    Pod is no longer routable")
 
