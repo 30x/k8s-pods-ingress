@@ -24,6 +24,10 @@ import (
 	"k8s.io/kubernetes/pkg/watch"
 )
 
+func ConvertSecretToModel(config *Config, secret *api.Secret) ([]byte) {
+	apikey, _ := secret.Data[config.APIKeySecretDataField]
+	return apikey
+}
 /*
 GetRouterSecretList returns the router secrets.
 */
@@ -58,7 +62,7 @@ func GetRouterSecretList(config *Config, kubeClient *client.Client) (*api.Secret
 /*
 UpdateSecretCacheForEvents updates the cache based on the secret events and returns if the changes warrant an nginx restart.
 */
-func UpdateSecretCacheForEvents(config *Config, cache map[string]*api.Secret, events []watch.Event) bool {
+func UpdateSecretCacheForEvents(config *Config, cache map[string][]byte, events []watch.Event) bool {
 	needsRestart := false
 
 	for _, event := range events {
@@ -70,7 +74,7 @@ func UpdateSecretCacheForEvents(config *Config, cache map[string]*api.Secret, ev
 		// Process the event
 		switch event.Type {
 		case watch.Added:
-			cache[namespace] = secret
+			cache[namespace] = ConvertSecretToModel(config, secret)
 			needsRestart = true
 
 		case watch.Deleted:
@@ -78,11 +82,10 @@ func UpdateSecretCacheForEvents(config *Config, cache map[string]*api.Secret, ev
 			needsRestart = true
 
 		case watch.Modified:
-			cached, ok := cache[namespace]
-			apiKey, _ := secret.Data[config.APIKeySecretDataField]
+			cachedAPIKey, ok := cache[namespace]
+			apiKey := ConvertSecretToModel(config, secret)
 
 			if ok {
-				cachedAPIKey, _ := cached.Data[config.APIKeySecretDataField]
 
 				if (apiKey == nil && cachedAPIKey != nil) || (apiKey != nil && cachedAPIKey == nil) {
 					needsRestart = true
@@ -99,11 +102,11 @@ func UpdateSecretCacheForEvents(config *Config, cache map[string]*api.Secret, ev
 				}
 			}
 
-			cache[namespace] = secret
+			cache[namespace] = apiKey
 		}
 
 		if _, ok := cache[namespace]; ok {
-			apiKey, _ := secret.Data[config.APIKeySecretDataField]
+			apiKey := ConvertSecretToModel(config, secret)
 
 			if apiKey == nil {
 				log.Printf("    Secret has an %s value: no\n", config.APIKeySecretDataField)

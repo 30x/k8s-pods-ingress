@@ -44,15 +44,12 @@ func initController(config *router.Config, kubeClient *client.Client) (*router.C
 	// Create a cache to keep track of the router "API Keys" and Pods (with routes)
 	cache := &router.Cache{
 		Pods:    make(map[string]*router.PodWithRoutes),
-		Secrets: make(map[string]*api.Secret),
+		Secrets: make(map[string][]byte),
 	}
 
 	// Turn the pods into a map based on the pod's name
 	for i, pod := range pods.Items {
-		cache.Pods[pod.Name] = &router.PodWithRoutes{
-			Pod:    &(pods.Items[i]),
-			Routes: router.GetRoutes(config, &pod),
-		}
+		cache.Pods[pod.Name] = router.ConvertPodToModel(config, &(pods.Items[i]));
 	}
 
 	// Query the initial list of Secrets
@@ -64,7 +61,7 @@ func initController(config *router.Config, kubeClient *client.Client) (*router.C
 
 	// Turn the secrets into a map based on the secret's namespace
 	for i, secret := range secrets.Items {
-		cache.Secrets[secret.Namespace] = &(secrets.Items[i])
+		cache.Secrets[secret.Namespace] = router.ConvertSecretToModel(config, &(secrets.Items[i]))
 	}
 
 	log.Printf("  Secrets found: %d", len(secrets.Items))

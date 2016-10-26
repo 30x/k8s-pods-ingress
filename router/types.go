@@ -26,7 +26,7 @@ Cache is the structure containing the router API Keys and the routable pods cach
 */
 type Cache struct {
 	Pods    map[string]*PodWithRoutes
-	Secrets map[string]*api.Secret
+	Secrets map[string][]byte
 }
 
 /*
@@ -69,7 +69,10 @@ type Outgoing struct {
 PodWithRoutes contains a pod and its routes
 */
 type PodWithRoutes struct {
-	Pod    *api.Pod
+	Name string
+	Namespace string
+	Status api.PodPhase
+	AnnotationHash uint64
 	Routes []*Route
 }
 

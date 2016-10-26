@@ -28,8 +28,6 @@ import (
 	"text/template"
 
 	"github.com/30x/k8s-router/router"
-
-	"k8s.io/kubernetes/pkg/api"
 )
 
 const (
@@ -127,7 +125,7 @@ type locationT struct {
 
 type serverT struct {
 	IsUpstream bool
-	Pod        *api.Pod
+	Pod        *router.PodWithRoutes
 	Target     string
 }
 
@@ -226,12 +224,12 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 			}
 
 			var locationSecret string
-			namespace := cacheEntry.Pod.Namespace
+			namespace := cacheEntry.Namespace
 			secret, ok := cache.Secrets[namespace]
 
 			if ok {
 				// There is guaranteed to be an API Key so no need to double check
-				locationSecret = base64.StdEncoding.EncodeToString(secret.Data[config.APIKeySecretDataField])
+				locationSecret = base64.StdEncoding.EncodeToString(secret)
 			}
 
 			location, ok := host.Locations[route.Incoming.Path]
@@ -266,7 +264,7 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 						// If there is no server for this target, create one
 						if ok {
 							upstream.Servers = append(upstream.Servers, &serverT{
-								Pod:    cacheEntry.Pod,
+								Pod:    cacheEntry,
 								Target: target,
 							})
 
@@ -282,7 +280,7 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 							Servers: []*serverT{
 								location.Server,
 								&serverT{
-									Pod:    cacheEntry.Pod,
+									Pod:    cacheEntry,
 									Target: target,
 								},
 							},
@@ -301,7 +299,7 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 					Path:      route.Incoming.Path,
 					Secret:    locationSecret,
 					Server: &serverT{
-						Pod:    cacheEntry.Pod,
+						Pod:    cacheEntry,
 						Target: target,
 					},
 				}

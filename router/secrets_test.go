@@ -62,7 +62,7 @@ Test for github.com/30x/k8s-router/router/secrets#UpdateSecretCacheForEvents
 func TestUpdateSecretCacheForEvents(t *testing.T) {
 	apiKeyStr := "API-Key"
 	apiKey := []byte(apiKeyStr)
-	cache := make(map[string]*api.Secret)
+	cache := make(map[string][]byte)
 	namespace := "my-namespace"
 
 	addedSecret := &api.Secret{
@@ -132,7 +132,7 @@ func TestUpdateSecretCacheForEvents(t *testing.T) {
 		t.Fatal("Server should require a restart")
 	}
 
-	if apiKeyStr == string(cache[namespace].Data[config.APIKeySecretDataField][:]) {
+	if apiKeyStr == string(cache[namespace][:]) {
 		t.Fatal("Cache should have the updated secret")
 	}
 
