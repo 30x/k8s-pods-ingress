@@ -47,6 +47,8 @@ type Config struct {
 	Port int
 	// The label selector used to identify routable objects
 	RoutableLabelSelector labels.Selector
+	// Max client request body size. nginx config: client_max_body_size. eg 10m
+	ClientMaxBodySize string
 }
 
 /*
