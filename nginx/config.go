@@ -56,6 +56,9 @@ daemon on;
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
 
+  # Maximum body size in request
+  client_max_body_size 100m;
+
   # Force HTTP 1.1 for upstream requests
   proxy_http_version 1.1;
 
