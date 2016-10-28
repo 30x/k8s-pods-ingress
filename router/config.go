@@ -45,6 +45,8 @@ const (
 	DefaultPort = 80
 	// DefaultRoutableLabelSelector is the default value for EnvVarRoutableLabelSelector (routable=true)
 	DefaultRoutableLabelSelector = "routable=true"
+	// Default ClientMaxBodySize for nginx max client request size. Default 100mb
+	DefaultClientMaxBodySize = "100m"
 	// EnvVarAPIKeyHeader Environment variable name for providing the header name used to identify the API Key header
 	EnvVarAPIKeyHeader = "API_KEY_HEADER"
 	// EnvVarAPIKeySecretLocation Environment variable name for providing the location of the secret (name:field) to identify API Key secrets
@@ -55,6 +57,8 @@ const (
 	EnvVarPathsAnnotation = "PATHS_ANNOTATION"
 	// EnvVarPort Environment variable for providing the port nginx should listen on
 	EnvVarPort = "PORT"
+	// EnvClientMaxBodySize Environment variable for max client request body size
+	EnvClientMaxBodySize = "CLIENT_MAX_BODY_SIZE"
 	// EnvVarRoutableLabelSelector Environment variable name for providing the label selector for identifying routable objects
 	EnvVarRoutableLabelSelector = "ROUTABLE_LABEL_SELECTOR"
 	// ErrMsgTmplInvalidAnnotationName is the error message template for an invalid annotation name
@@ -75,6 +79,7 @@ func ConfigFromEnv() (*Config, error) {
 		APIKeyHeader:    os.Getenv(EnvVarAPIKeyHeader),
 		HostsAnnotation: os.Getenv(EnvVarHostsAnnotation),
 		PathsAnnotation: os.Getenv(EnvVarPathsAnnotation),
+		ClientMaxBodySize: os.Getenv(EnvClientMaxBodySize),
 	}
 
 	// Apply defaults
@@ -88,6 +93,10 @@ func ConfigFromEnv() (*Config, error) {
 
 	if config.PathsAnnotation == "" {
 		config.PathsAnnotation = DefaultPathsAnnotation
+	}
+
+	if config.ClientMaxBodySize == "" {
+		config.ClientMaxBodySize = DefaultClientMaxBodySize
 	}
 
 	// Validate configuration

@@ -56,6 +56,9 @@ daemon on;
   server_names_hash_max_size 512;
   server_names_hash_bucket_size 64;
 
+  # Maximum body size in request
+  client_max_body_size {{.Config.ClientMaxBodySize}};
+
   # Force HTTP 1.1 for upstream requests
   proxy_http_version 1.1;
 
@@ -136,6 +139,7 @@ type templateDataT struct {
 	Hosts        map[string]*hostT
 	Port         int
 	Upstreams    map[string]*upstreamT
+	Config *router.Config
 }
 
 type upstreamT struct {
@@ -207,6 +211,7 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 		Hosts:        make(map[string]*hostT),
 		Port:         config.Port,
 		Upstreams:    make(map[string]*upstreamT),
+		Config: config,
 	}
 
 	// Process the pods to populate the nginx configuration data structure
