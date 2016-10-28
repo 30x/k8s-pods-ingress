@@ -50,11 +50,11 @@ All of the touch points for this router are configurable via environment variabl
 _(The format for this key is `{SECRET_NAME}:{SECRET_DATA_FIELD_NAME}`.  Default: `routing:api-key`)_
 * `HOSTS_ANNOTATION`: This is the annotation name used to store the space delimited array of hosts used for routing to
 your Pods _(Default: `routingHosts`)_
-* `PATHS_ANNOTATION`: This is the annotation name used to store the space delimited array of routing path configurations
+* `PATHS_ANNOTATION`: This is the annotation name used to store the space delimited array of routing path configurations for your Pods _(Default: `routingPaths`)_
 * `PORT`: This is the port that nginx will listen on _(Default: `80`)_
-for your Pods _(Default: `routingPaths`)_
 * `ROUTABLE_LABEL_SELECTOR`: This is the [label selector](http://kubernetes.io/docs/user-guide/labels/#label-selectors)
 used to identify Pods that are marked for routing _(Default: `routable=true`)_
+* `CLIENT_MAX_BODY_SIZE`: Configures the max client request body size of nginx. _(Default: `100m`)_
 
 # Security
 
