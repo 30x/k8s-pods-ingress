@@ -37,6 +37,8 @@ const (
 	DefaultAPIKeySecretDataField = "api-key"
 	// DefaultAPIKeySecretLocation is the default value for the EnvVarAPIKeySecretLocation (routing:api-key)
 	DefaultAPIKeySecretLocation = DefaultAPIKeySecret + ":" + DefaultAPIKeySecretDataField
+	// Default ClientMaxBodySize for nginx max client request size. Default 100mb
+	DefaultClientMaxBodySize = "0"
 	// DefaultHostsAnnotation is the default value for EnvVarHostsAnnotation (routingHosts)
 	DefaultHostsAnnotation = "routingHosts"
 	// DefaultPathsAnnotation is the default value for the EnvVarHostsAnnotation (routingPaths)
@@ -45,8 +47,6 @@ const (
 	DefaultPort = 80
 	// DefaultRoutableLabelSelector is the default value for EnvVarRoutableLabelSelector (routable=true)
 	DefaultRoutableLabelSelector = "routable=true"
-	// Default ClientMaxBodySize for nginx max client request size. Default 100mb
-	DefaultClientMaxBodySize = "100m"
 	// EnvVarAPIKeyHeader Environment variable name for providing the header name used to identify the API Key header
 	EnvVarAPIKeyHeader = "API_KEY_HEADER"
 	// EnvVarAPIKeySecretLocation Environment variable name for providing the location of the secret (name:field) to identify API Key secrets
