@@ -59,6 +59,31 @@ func getDefaultServerConf(config *router.Config) string {
 	return doc.String()
 }
 
+func getConfPreamble(config *router.Config) string {
+	var doc bytes.Buffer
+
+	// Parse the default nginx server block template
+	t, err := template.New("nginx-http-preamble").Parse(httpConfPreambleTmpl)
+
+	if err != nil {
+		log.Fatalf("Failed to render nginx.conf http preamble template: %v.", err)
+	}
+
+	data := struct {
+		Config *router.Config
+	}{
+		config,
+	}
+
+	if err := t.Execute(&doc, data); err != nil {
+		log.Fatalf("Failed to write template %v", err)
+
+		return ""
+	}
+
+	return doc.String()
+}
+
 func resetConf() {
 	// Reset the cached default server (At runtime, we cache the results because they will never change)
 	defaultNginxConf = ""
@@ -148,7 +173,7 @@ func TestGetConfMultiplePaths(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {` + httpConfPreambleTmpl + `
+http {` + getConfPreamble(config) + `
   server {
     listen 80;
     server_name test.github.com;
@@ -211,7 +236,7 @@ func TestGetConfMultiplePathsCustomPort(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {` + httpConfPreambleTmpl + `
+http {` + getConfPreamble(config) + `
   server {
     listen 90;
     server_name test.github.com;
@@ -271,7 +296,7 @@ func TestGetConfMultipleRoutableServices(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {` + httpConfPreambleTmpl + `
+http {` + getConfPreamble(config) + `
   server {
     listen 80;
     server_name prod.github.com;
@@ -358,7 +383,7 @@ func TestGetConfMultiplePodRoutableServices(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {` + httpConfPreambleTmpl + `
+http {` + getConfPreamble(config) + `
   # Upstream for / traffic on test.github.com
   upstream upstream619897598 {
     # Pod testing (namespace: testing)
@@ -471,7 +496,7 @@ func TestGetConfWithAPIKey(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {` + httpConfPreambleTmpl + `
+http {` + getConfPreamble(config) + `
   server {
     listen 80;
     server_name test.github.com;
@@ -541,7 +566,7 @@ func TestGetConfWithCustomAPIKeyHeader(t *testing.T) {
 events {
   worker_connections 1024;
 }
-http {` + httpConfPreambleTmpl + `
+http {` + getConfPreamble(config) + `
   server {
     listen 80;
     server_name test.github.com;
