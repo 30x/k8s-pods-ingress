@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"log"
+	"strings"
 	"testing"
 	"text/template"
 
@@ -622,4 +623,16 @@ http {` + getConfPreamble(config) + `
 	validateConf(t, "pod with API Key", expectedConf, []*api.Pod{&pod}, []*api.Secret{&secret})
 
 	resetConf()
+}
+
+/*
+Test for ClientMaxBodySize config variable in Nginx Template
+*/
+func TestClientMaxBodySize(t *testing.T) {
+	config.ClientMaxBodySize = "1234m"
+	doc := getConfPreamble(config)
+	idx := strings.Index(doc, "client_max_body_size 1234m;")
+	if (idx < 0) {
+		log.Fatalf("Failed to include client_max_body_size from config.")
+	}
 }
