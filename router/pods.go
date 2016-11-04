@@ -122,6 +122,57 @@ func ConvertPodToModel(config *Config, pod *api.Pod) (*PodWithRoutes) {
 }
 
 /*
+ Get Health Check model from a Pod spec and a container port
+*/
+func GetHealthCheckFromPodPort(pod *api.Pod, checkPort int32) (*HealthCheck) {
+	check := HealthCheck{}
+
+	// Create a list of valid routing ports
+	for _, container := range pod.Spec.Containers {
+		// Pod has multiple containers, return health check for a container port
+		for _, port := range container.Ports {
+			if port.ContainerPort == checkPort {
+				var probe *api.Probe
+				// Check ReadinessProbe and use first
+				if container.ReadinessProbe != nil {
+					probe = container.ReadinessProbe
+				} else if container.LivenessProbe != nil { // Fallback on LivenessProbe
+					probe = container.LivenessProbe
+				}
+
+				// If non are found don't create HealthCheck
+				if probe == nil {
+					return nil
+				}
+
+				check.HttpCheck = false
+				check.TimeoutMs = probe.TimeoutSeconds*1000 // convert to ms
+				check.IntervalMs = probe.PeriodSeconds*1000 // convert to ms
+				check.UnhealthyThreshold = probe.FailureThreshold
+				check.HealthyThreshold = probe.SuccessThreshold
+
+				if probe.Handler.HTTPGet != nil {
+					check.HttpCheck = true
+					check.Port = int32(probe.Handler.HTTPGet.Port.IntValue())
+					check.Path = probe.Handler.HTTPGet.Path
+					// Default to GET kubernetes doesn't have method option
+					check.Method = "GET"
+				} else if probe.Handler.TCPSocket != nil {
+					check.Port = int32(probe.Handler.TCPSocket.Port.IntValue())
+				} else {
+					check.Port = checkPort
+				}
+
+				return &check
+			}
+		}
+	}
+
+	return nil
+}
+
+
+/*
 GetRoutes returns an array of routes defined within the provided pod
 */
 func GetRoutes(config *Config, pod *api.Pod) []*Route {
@@ -225,6 +276,7 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 				if hosts != nil && pathPairs != nil {
 					for _, host := range hosts {
 						for _, cPathPair := range pathPairs {
+							port, _ := strconv.Atoi(cPathPair.Port)
 							routes = append(routes, &Route{
 								Incoming: &Incoming{
 									Host: host,
@@ -233,6 +285,7 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 								Outgoing: &Outgoing{
 									IP:   pod.Status.PodIP,
 									Port: cPathPair.Port,
+									HealthCheck: GetHealthCheckFromPodPort(pod, int32(port)),
 								},
 							})
 						}

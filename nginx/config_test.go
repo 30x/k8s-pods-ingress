@@ -92,6 +92,8 @@ func resetConf() {
 	config.Port = 80
 	// Reset the cached API Key header (At runtime, we cache the results because they will never change)
 	nginxAPIKeyHeader = ""
+  // Reset enable nginx health check
+  config.EnableNginxUpstreamCheckModule = false
 }
 
 func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets []*api.Secret) {
@@ -111,6 +113,13 @@ func validateConf(t *testing.T, desc, expected string, pods []*api.Pod, secrets 
 	actual := GetConf(config, cache)
 
 	if expected != actual {
+		expectedArr := strings.Split(expected, "\n")
+		actualArr := strings.Split(actual, "\n")
+		for i, line := range expectedArr {
+			if line != actualArr[i] {
+				t.Fatalf("Failed at line (%d): Expected=%s\n Actual=%s\n", i, line, actualArr[i])
+			}
+		}
 		t.Fatalf("Unexpected nginx.conf was generated (%s)\nExpected: %s\n\nActual: %s\n", desc, expected, actual)
 	}
 }
@@ -175,18 +184,37 @@ events {
   worker_connections 1024;
 }
 http {` + getConfPreamble(config) + `
+  # Upstream for /prod traffic on test.github.com
+  upstream upstream2256221875 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+
+  }
+
+  # Upstream for /test traffic on test.github.com
+  upstream upstream999700326 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16:3000;
+
+  }
+
   server {
     listen 80;
     server_name test.github.com;
-` + defaultNginxLocationTmpl + `
+
+    # Here to avoid returning the nginx welcome page for servers that do not have a "/" location.  (Issue #35)
+    location / {
+      return 404;
+    }
+
     location /prod {
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16;
+      # Upstream upstream2256221875
+      proxy_pass http://upstream2256221875;
     }
 
     location /test {
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16:3000;
+      # Upstream upstream999700326
+      proxy_pass http://upstream999700326;
     }
   }
 ` + getDefaultServerConf(config) + `}
@@ -238,23 +266,41 @@ events {
   worker_connections 1024;
 }
 http {` + getConfPreamble(config) + `
+  # Upstream for /prod traffic on test.github.com
+  upstream upstream2256221875 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+
+  }
+
+  # Upstream for /test traffic on test.github.com
+  upstream upstream999700326 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16:3000;
+
+  }
+
   server {
     listen 90;
     server_name test.github.com;
-` + defaultNginxLocationTmpl + `
+
+    # Here to avoid returning the nginx welcome page for servers that do not have a "/" location.  (Issue #35)
+    location / {
+      return 404;
+    }
+
     location /prod {
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16;
+      # Upstream upstream2256221875
+      proxy_pass http://upstream2256221875;
     }
 
     location /test {
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16:3000;
+      # Upstream upstream999700326
+      proxy_pass http://upstream999700326;
     }
   }
 ` + getDefaultServerConf(config) + `}
 `
-
 	pod := api.Pod{
 		ObjectMeta: api.ObjectMeta{
 			Annotations: map[string]string{
@@ -298,13 +344,27 @@ events {
   worker_connections 1024;
 }
 http {` + getConfPreamble(config) + `
+  # Upstream for / traffic on prod.github.com
+  upstream upstream2407493903 {
+    # Pod testing2 (namespace: testing)
+    server 10.244.1.17;
+
+  }
+
+  # Upstream for /nodejs traffic on test.github.com
+  upstream upstream2702957321 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16:3000;
+
+  }
+
   server {
     listen 80;
     server_name prod.github.com;
 
     location / {
-      # Pod testing2 (namespace: testing)
-      proxy_pass http://10.244.1.17;
+      # Upstream upstream2407493903
+      proxy_pass http://upstream2407493903;
     }
   }
 
@@ -313,8 +373,8 @@ http {` + getConfPreamble(config) + `
     server_name test.github.com;
 ` + defaultNginxLocationTmpl + `
     location /nodejs {
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16:3000;
+      # Upstream upstream2702957321
+      proxy_pass http://upstream2702957321;
     }
   }
 ` + getDefaultServerConf(config) + `}
@@ -393,6 +453,7 @@ http {` + getConfPreamble(config) + `
     server 10.244.1.17;
     # Pod testing3 (namespace: testing)
     server 10.244.1.18:3000;
+
   }
 
   server {
@@ -488,6 +549,406 @@ http {` + getConfPreamble(config) + `
 	validateConf(t, "multiple pods, same service", expectedConf, pods, []*api.Secret{})
 }
 
+func TestGetConfMultiplePodsWithHealthCheckDisabled(t *testing.T) {
+
+	// Enable Nginx Upstream Health Check
+	config.EnableNginxUpstreamCheckModule = false
+
+	expectedConf := `
+events {
+  worker_connections 1024;
+}
+http {` + getConfPreamble(config) + `
+  # Upstream for / traffic on test.github.com
+  upstream upstream619897598 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+    # Pod testing2 (namespace: testing)
+    server 10.244.1.17;
+    # Pod testing3 (namespace: testing)
+    server 10.244.1.18:3000;
+
+  }
+
+  server {
+    listen 80;
+    server_name test.github.com;
+
+    location / {
+      # Upstream upstream619897598
+      proxy_pass http://upstream619897598;
+    }
+  }
+` + getDefaultServerConf(config) + `}
+`
+
+	probe := api.Probe{
+		FailureThreshold: 3,
+		SuccessThreshold: 1,
+		PeriodSeconds: 10,
+		TimeoutSeconds: 5,
+		Handler: api.Handler{
+			HTTPGet: &api.HTTPGetAction{
+				Path: "/status",
+			},
+		},
+	}
+
+	pods := []*api.Pod{
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
+				},
+				Name:      "testing",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.16",
+			},
+		},
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
+				},
+				Name:      "testing2",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.17",
+			},
+		},
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "3000:/",
+				},
+				Name:      "testing3",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(3000),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.18",
+			},
+		},
+	}
+
+	validateConf(t, "multiple pods, same service with ReadinessProbes but health check disabled", expectedConf, pods, []*api.Secret{})
+}
+
+/*
+Test for github.com/30x/k8s-router/nginx/config#GetConf with single, multiple pod services with health checks
+*/
+func TestGetConfMultiplePodsWithHealthCheckEnabled(t *testing.T) {
+
+	// Enable Nginx Upstream Health Check
+	config.EnableNginxUpstreamCheckModule = true
+
+	expectedConf := `
+events {
+  worker_connections 1024;
+}
+http {` + getConfPreamble(config) + `
+  # Upstream for / traffic on test.github.com
+  upstream upstream619897598 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+    # Pod testing2 (namespace: testing)
+    server 10.244.1.17;
+    # Pod testing3 (namespace: testing)
+    server 10.244.1.18:3000;
+
+    # Upstream Health Check for nginx_upstream_check_module - https://github.com/yaoweibin/nginx_upstream_check_module 
+    check interval=10000 rise=1 fall=3 timeout=5000 port=0 type=http;
+    check_http_send "GET /status HTTP/1.0\r\n\r\n";
+    check_http_expect_alive http_2xx; 
+
+  }
+
+  server {
+    listen 80;
+    server_name test.github.com;
+
+    location / {
+      # Upstream upstream619897598
+      proxy_pass http://upstream619897598;
+    }
+  }
+` + getDefaultServerConf(config) + `}
+`
+
+	probe := api.Probe{
+		FailureThreshold: 3,
+		SuccessThreshold: 1,
+		PeriodSeconds: 10,
+		TimeoutSeconds: 5,
+		Handler: api.Handler{
+			HTTPGet: &api.HTTPGetAction{
+				Path: "/status",
+			},
+		},
+	}
+
+	pods := []*api.Pod{
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
+				},
+				Name:      "testing",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.16",
+			},
+		},
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
+				},
+				Name:      "testing2",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.17",
+			},
+		},
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "3000:/",
+				},
+				Name:      "testing3",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(3000),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.18",
+			},
+		},
+	}
+
+	validateConf(t, "multiple pods, same service with nginx health checks", expectedConf, pods, []*api.Secret{})
+}
+
+/*
+Test for github.com/30x/k8s-router/nginx/config#GetConf with single, multiple pod services with tcp health checks
+*/
+func TestGetConfMultiplePodsWithTCPHealthCheckEnabled(t *testing.T) {
+
+	// Enable Nginx Upstream Health Check
+	config.EnableNginxUpstreamCheckModule = true
+
+	expectedConf := `
+events {
+  worker_connections 1024;
+}
+http {` + getConfPreamble(config) + `
+  # Upstream for / traffic on test.github.com
+  upstream upstream619897598 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+    # Pod testing2 (namespace: testing)
+    server 10.244.1.17;
+    # Pod testing3 (namespace: testing)
+    server 10.244.1.18:3000;
+
+    # Upstream Health Check for nginx_upstream_check_module - https://github.com/yaoweibin/nginx_upstream_check_module 
+    check interval=10000 rise=1 fall=3 timeout=5000 port=0 type=tcp;
+
+  }
+
+  server {
+    listen 80;
+    server_name test.github.com;
+
+    location / {
+      # Upstream upstream619897598
+      proxy_pass http://upstream619897598;
+    }
+  }
+` + getDefaultServerConf(config) + `}
+`
+
+	probe := api.Probe{
+		FailureThreshold: 3,
+		SuccessThreshold: 1,
+		PeriodSeconds: 10,
+		TimeoutSeconds: 5,
+		Handler: api.Handler{
+			TCPSocket: &api.TCPSocketAction{
+			},
+		},
+	}
+
+	pods := []*api.Pod{
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
+				},
+				Name:      "testing",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.16",
+			},
+		},
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "80:/",
+				},
+				Name:      "testing2",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(80),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.17",
+			},
+		},
+		&api.Pod{
+			ObjectMeta: api.ObjectMeta{
+				Annotations: map[string]string{
+					"routingHosts": "test.github.com",
+					"routingPaths": "3000:/",
+				},
+				Name:      "testing3",
+				Namespace: "testing",
+			},
+			Spec: api.PodSpec{
+				Containers: []api.Container{
+					api.Container{
+						Ports: []api.ContainerPort{
+							api.ContainerPort{
+								ContainerPort: int32(3000),
+							},
+						},
+						ReadinessProbe: &probe,
+					},
+				},
+			},
+			Status: api.PodStatus{
+				Phase: api.PodRunning,
+				PodIP: "10.244.1.18",
+			},
+		},
+	}
+
+	validateConf(t, "multiple pods, same service with nginx tcp health checks", expectedConf, pods, []*api.Secret{})
+}
+
 /*
 Test for github.com/30x/k8s-router/nginx/config#GetConf with API Key
 */
@@ -498,6 +959,13 @@ events {
   worker_connections 1024;
 }
 http {` + getConfPreamble(config) + `
+  # Upstream for / traffic on test.github.com
+  upstream upstream619897598 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+
+  }
+
   server {
     listen 80;
     server_name test.github.com;
@@ -508,8 +976,8 @@ http {` + getConfPreamble(config) + `
         return 403;
       }
 
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16;
+      # Upstream upstream619897598
+      proxy_pass http://upstream619897598;
     }
   }
 ` + getDefaultServerConf(config) + `}
@@ -568,6 +1036,13 @@ events {
   worker_connections 1024;
 }
 http {` + getConfPreamble(config) + `
+  # Upstream for / traffic on test.github.com
+  upstream upstream619897598 {
+    # Pod testing (namespace: testing)
+    server 10.244.1.16;
+
+  }
+
   server {
     listen 80;
     server_name test.github.com;
@@ -578,8 +1053,8 @@ http {` + getConfPreamble(config) + `
         return 403;
       }
 
-      # Pod testing (namespace: testing)
-      proxy_pass http://10.244.1.16;
+      # Upstream upstream619897598
+      proxy_pass http://upstream619897598;
     }
   }
 ` + getDefaultServerConf(config) + `}

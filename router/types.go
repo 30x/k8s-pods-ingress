@@ -17,6 +17,8 @@ limitations under the License.
 package router
 
 import (
+	"reflect"
+
 	"k8s.io/kubernetes/pkg/api"
 	"k8s.io/kubernetes/pkg/labels"
 )
@@ -39,6 +41,8 @@ type Config struct {
 	APIKeySecret string
 	// The secret data field name to store the API Key for the namespace
 	APIKeySecretDataField string
+	// Enable Nginx Upstream Health Check Module
+	EnableNginxUpstreamCheckModule bool
 	// The name of the annotation used to find hosts to route
 	HostsAnnotation string
 	// The name of the annotation used to find paths to route
@@ -65,6 +69,25 @@ Outgoing describes the information required to proxy to a backend
 type Outgoing struct {
 	IP   string
 	Port string
+	HealthCheck *HealthCheck
+}
+
+/*
+Health check of an Outgoing upstream server allows nginx to monitor pod health.
+*/
+type HealthCheck struct {
+	HttpCheck bool
+	Path string
+	Method string
+	TimeoutMs int32
+	IntervalMs int32
+	UnhealthyThreshold int32
+	HealthyThreshold int32
+	Port int32
+}
+
+func (a HealthCheck) Equal(b *HealthCheck) bool {
+	return reflect.DeepEqual(a, *b);
 }
 
 /*

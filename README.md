@@ -49,6 +49,7 @@ All of the touch points for this router are configurable via environment variabl
 * `API_KEY_SECRET_LOCATION`: This is the location of the optional API Key to use to secure communication to your Pods.
 _(The format for this key is `{SECRET_NAME}:{SECRET_DATA_FIELD_NAME}`.  Default: `routing:api-key`)_
 * `CLIENT_MAX_BODY_SIZE`: Configures the max client request body size of nginx. _(Default: `0`, Disables checking of client request body size.)_
+* `ENABLE_NGINX_UPSTREAM_CHECK`: Enables nginx upstream health checks. _(Default: `disabled`)_
 * `HOSTS_ANNOTATION`: This is the annotation name used to store the space delimited array of hosts used for routing to
 your Pods _(Default: `routingHosts`)_
 * `PATHS_ANNOTATION`: This is the annotation name used to store the space delimited array of routing path configurations for your Pods _(Default: `routingPaths`)_
@@ -476,6 +477,39 @@ only that, if I were to `curl http://test.k8s.com/internal`, it also would not g
 Now I realize this is a somewhat convoluted example but the purpose was to show how we could use the same code base to
 serve different roles using configuration alone.  Thet network isolation and security required to do this properly is
 outside the scope of this example.
+
+## Nginx Health Checks
+
+The router has an optional feature to enable nginx health checks on upstreams. It's only available when a when using nginx built with [nginx_upstream_check_module](https://github.com/xiaokai-wang/nginx_upstream_check_module) and enabled in the router with `ENABLE_NGINX_UPSTREAM_CHECK`.
+
+The nginx config is built from the Pod's [ReadinessProbe](http://kubernetes.io/docs/user-guide/pod-states/#container-probes) or [LivenessProbe](http://kubernetes.io/docs/user-guide/pod-states/#container-probes) in that order.
+
+For example a pod with the `redinessProbe`:
+``` yaml
+readinessProbe:
+  httpGet:
+    path: /status
+    scheme: HTTP
+  periodSeconds: 10
+  successThreshold: 2
+  failureThreshold: 3
+  timeoutSeconds: 5
+```
+
+Would generate a health check on the upstream.
+
+```
+upstream upstream619897598 {
+  # Pod 1
+  server 1.2.3.4;
+
+  # Upstream Health Check for nginx_upstream_check_module - https://github.com/yaoweibin/nginx_upstream_check_module 
+  check interval=10000 rise=2 fall=3 timeout=5000 port=0 type=http;
+  check_http_send "GET /status HTTP/1.0\r\n\r\n";
+  check_http_expect_alive http_2xx; 
+
+}
+```
 
 # Building and Running
 

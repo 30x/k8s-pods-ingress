@@ -37,8 +37,10 @@ const (
 	DefaultAPIKeySecretDataField = "api-key"
 	// DefaultAPIKeySecretLocation is the default value for the EnvVarAPIKeySecretLocation (routing:api-key)
 	DefaultAPIKeySecretLocation = DefaultAPIKeySecret + ":" + DefaultAPIKeySecretDataField
-	// DefaultClientMaxBodySize for nginx max client request size. Default 100mb
+	// DefaultClientMaxBodySize for nginx max client request size. Default no limit
 	DefaultClientMaxBodySize = "0"
+	// DefaultEnableNginxUpstreamCheckModule default disable health check
+	DefaultEnableNginxUpstreamCheckModule = false
 	// DefaultHostsAnnotation is the default value for EnvVarHostsAnnotation (routingHosts)
 	DefaultHostsAnnotation = "routingHosts"
 	// DefaultPathsAnnotation is the default value for the EnvVarHostsAnnotation (routingPaths)
@@ -51,6 +53,8 @@ const (
 	EnvVarAPIKeyHeader = "API_KEY_HEADER"
 	// EnvVarAPIKeySecretLocation Environment variable name for providing the location of the secret (name:field) to identify API Key secrets
 	EnvVarAPIKeySecretLocation = "API_KEY_SECRET_LOCATION"
+	// EnvVarEnableNginxUpstreamCheckModule Environment variable name for enabling nginx upstream check module
+	EnvVarEnableNginxUpstreamCheckModule = "ENABLE_NGINX_UPSTREAM_CHECK"
 	// EnvVarHostsAnnotation Environment variable name for providing the name of the hosts annotation
 	EnvVarHostsAnnotation = "HOSTS_ANNOTATION"
 	// EnvVarPathsAnnotation Environment variable name for providing the the name of the paths annotation
@@ -80,6 +84,7 @@ func ConfigFromEnv() (*Config, error) {
 		HostsAnnotation:   os.Getenv(EnvVarHostsAnnotation),
 		PathsAnnotation:   os.Getenv(EnvVarPathsAnnotation),
 		ClientMaxBodySize: os.Getenv(EnvClientMaxBodySize),
+		EnableNginxUpstreamCheckModule: DefaultEnableNginxUpstreamCheckModule,
 	}
 
 	// Apply defaults
@@ -97,6 +102,14 @@ func ConfigFromEnv() (*Config, error) {
 
 	if config.ClientMaxBodySize == "" {
 		config.ClientMaxBodySize = DefaultClientMaxBodySize
+	}
+
+	// Enable/Disable nginx upstream health check
+	if os.Getenv(EnvVarEnableNginxUpstreamCheckModule) != "" &&
+		os.Getenv(EnvVarEnableNginxUpstreamCheckModule) != "0" {
+		config.EnableNginxUpstreamCheckModule = true
+	} else {
+		config.EnableNginxUpstreamCheckModule = false
 	}
 
 	// Validate configuration
