@@ -49,7 +49,7 @@ func initController(config *router.Config, kubeClient *client.Client) (*router.C
 
 	// Turn the pods into a map based on the pod's name
 	for i, pod := range pods.Items {
-		cache.Pods[pod.Name] = router.ConvertPodToModel(config, &(pods.Items[i]));
+		cache.Pods[pod.Name] = router.ConvertPodToModel(config, &(pods.Items[i]))
 	}
 
 	// Query the initial list of Secrets
@@ -123,6 +123,7 @@ func main() {
 	log.Printf("    API Key Secret Name: %s\n", config.APIKeySecret)
 	log.Printf("    API Key Secret Data Field: %s\n", config.APIKeySecretDataField)
 	log.Printf("    Hosts Annotation: %s\n", config.HostsAnnotation)
+	log.Printf("    Max client request size (0 indicates there is no maximum): %s\n", config.ClientMaxBodySize)
 	log.Printf("    Paths Annotation: %s\n", config.PathsAnnotation)
 	log.Printf("    Port (nginx): %d\n", config.Port)
 	log.Printf("    Routable Label Selector: %s\n", config.RoutableLabelSelector)

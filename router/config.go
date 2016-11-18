@@ -37,7 +37,7 @@ const (
 	DefaultAPIKeySecretDataField = "api-key"
 	// DefaultAPIKeySecretLocation is the default value for the EnvVarAPIKeySecretLocation (routing:api-key)
 	DefaultAPIKeySecretLocation = DefaultAPIKeySecret + ":" + DefaultAPIKeySecretDataField
-	// Default ClientMaxBodySize for nginx max client request size. Default 100mb
+	// DefaultClientMaxBodySize for nginx max client request size. Default 100mb
 	DefaultClientMaxBodySize = "0"
 	// DefaultHostsAnnotation is the default value for EnvVarHostsAnnotation (routingHosts)
 	DefaultHostsAnnotation = "routingHosts"
@@ -76,9 +76,9 @@ ConfigFromEnv returns the configuration based on the environment variables and v
 */
 func ConfigFromEnv() (*Config, error) {
 	config := &Config{
-		APIKeyHeader:    os.Getenv(EnvVarAPIKeyHeader),
-		HostsAnnotation: os.Getenv(EnvVarHostsAnnotation),
-		PathsAnnotation: os.Getenv(EnvVarPathsAnnotation),
+		APIKeyHeader:      os.Getenv(EnvVarAPIKeyHeader),
+		HostsAnnotation:   os.Getenv(EnvVarHostsAnnotation),
+		PathsAnnotation:   os.Getenv(EnvVarPathsAnnotation),
 		ClientMaxBodySize: os.Getenv(EnvClientMaxBodySize),
 	}
 
