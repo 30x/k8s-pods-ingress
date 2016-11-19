@@ -2,7 +2,10 @@ FROM nginx:stable-alpine
 
 MAINTAINER Jeremy Whitlock <jwhitlock@apache.org>
 
+ARG GIT_COMMIT
+
 LABEL Description="A general purpose router for Kubernetes."
+LABEL GitCommit=${GIT_COMMIT}
 
 # Prepare the environment
 RUN apk update \

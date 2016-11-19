@@ -1,3 +1,5 @@
+GIT_COMMIT=$(shell git rev-parse HEAD)
+
 all: build
 
 check: test lint
@@ -18,3 +20,6 @@ build: main.go
 
 build-for-container: main.go
 	CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-w' -o k8s-router .
+
+build-image: build-for-container
+	docker build -t k8s-router --build-arg GIT_COMMIT=$(GIT_COMMIT) .
