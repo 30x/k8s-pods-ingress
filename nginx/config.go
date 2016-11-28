@@ -86,7 +86,14 @@ http {` + httpConfPreambleTmpl + `{{range $key, $upstream := .Upstreams}}
   upstream {{$upstream.Name}} {
 {{range $server := $upstream.Servers}}    # Pod {{$server.Pod.Name}} (namespace: {{$server.Pod.Namespace}})
     server {{$server.Target}};
-{{end}}  }
+{{end}}{{if and $.Config.EnableNginxUpstreamCheckModule $upstream.HealthCheck }}
+    # Upstream Health Check for nginx_upstream_check_module - https://github.com/yaoweibin/nginx_upstream_check_module {{if $upstream.HealthCheck.HttpCheck}}
+    check interval={{$upstream.HealthCheck.IntervalMs}} rise={{$upstream.HealthCheck.HealthyThreshold}} fall={{$upstream.HealthCheck.UnhealthyThreshold}} timeout={{$upstream.HealthCheck.TimeoutMs}} port={{$upstream.HealthCheck.Port}} type=http;
+    check_http_send "{{$upstream.HealthCheck.Method}} {{$upstream.HealthCheck.Path}} HTTP/1.0\r\n\r\n";
+    check_http_expect_alive http_2xx; {{else}}
+    check interval={{$upstream.HealthCheck.IntervalMs}} rise={{$upstream.HealthCheck.HealthyThreshold}} fall={{$upstream.HealthCheck.UnhealthyThreshold}} timeout={{$upstream.HealthCheck.TimeoutMs}} port={{$upstream.HealthCheck.Port}} type=tcp;{{end}}
+{{end}}
+  }
 {{end}}{{range $host, $server := .Hosts}}
   server {
     listen {{$.Port}};
@@ -147,6 +154,7 @@ type upstreamT struct {
 	Name    string
 	Path    string
 	Servers serversT
+	HealthCheck *router.HealthCheck
 }
 
 func (slice serversT) Len() int {
@@ -266,8 +274,16 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 							}
 						}
 
-						// If there is no server for this target, create one
+						// Add upstream server to list
 						if ok {
+							// @todo Handle HealthCheck mismatch between individual pods
+							/*
+							if upstream.HealthCheck != nil &&
+                                                           route.Outgoing.HealthCheck != nil &&
+                                                           !upstream.HealthCheck.Equal(route.Outgoing.HealthCheck) {
+							}
+                                                        */
+
 							upstream.Servers = append(upstream.Servers, &serverT{
 								Pod:    cacheEntry,
 								Target: target,
@@ -276,26 +292,6 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 							// Sort to make finding your pods in an upstream easier
 							sort.Sort(upstream.Servers)
 						}
-					} else {
-						// Create the new upstream
-						tmplData.Upstreams[upstreamKey] = &upstreamT{
-							Name: upstreamName,
-							Host: route.Incoming.Host,
-							Path: route.Incoming.Path,
-							Servers: []*serverT{
-								location.Server,
-								&serverT{
-									Pod:    cacheEntry,
-									Target: target,
-								},
-							},
-						}
-					}
-
-					// Update the location server
-					location.Server = &serverT{
-						IsUpstream: true,
-						Target:     upstreamName,
 					}
 				}
 			} else {
@@ -304,8 +300,23 @@ func GetConf(config *router.Config, cache *router.Cache) string {
 					Path:      route.Incoming.Path,
 					Secret:    locationSecret,
 					Server: &serverT{
+						IsUpstream: true,
 						Pod:    cacheEntry,
-						Target: target,
+						Target:     upstreamName,
+					},
+				}
+
+				// Always create a new upstream even for singe servers for HealthCheck to be used
+				tmplData.Upstreams[upstreamKey] = &upstreamT{
+					Name: upstreamName,
+					Host: route.Incoming.Host,
+					Path: route.Incoming.Path,
+					HealthCheck: route.Outgoing.HealthCheck,
+					Servers: []*serverT{
+						&serverT{
+							Pod:    cacheEntry,
+							Target: target,
+						},
 					},
 				}
 			}

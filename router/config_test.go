@@ -59,6 +59,7 @@ func resetEnv(t *testing.T) {
 	unsetEnv(EnvVarPathsAnnotation)
 	unsetEnv(EnvVarPort)
 	unsetEnv(EnvVarRoutableLabelSelector)
+	unsetEnv(EnvVarEnableNginxUpstreamCheckModule)
 }
 
 func setEnv(t *testing.T, key, value string) {
@@ -86,6 +87,8 @@ func validateConfig(t *testing.T, desc string, expected *Config, actual *Config)
 		t.Fatalf(makeError("Port", strconv.Itoa(expected.Port), strconv.Itoa(actual.Port)))
 	} else if expected.RoutableLabelSelector.String() != actual.RoutableLabelSelector.String() {
 		t.Fatalf(makeError("RoutableLabelSelector", expected.RoutableLabelSelector.String(), actual.RoutableLabelSelector.String()))
+	} else if expected.EnableNginxUpstreamCheckModule != actual.EnableNginxUpstreamCheckModule {
+		t.Fatalf("EnableNginxUpstreamCheckModule does not match in config for %s.", desc)
 	}
 }
 
@@ -100,6 +103,7 @@ func TestConfigFromEnvDefaultConfig(t *testing.T) {
 		PathsAnnotation:       DefaultPathsAnnotation,
 		Port:                  DefaultPort,
 		RoutableLabelSelector: getLabelSelector(t, DefaultRoutableLabelSelector),
+		EnableNginxUpstreamCheckModule: DefaultEnableNginxUpstreamCheckModule,
 	})
 }
 
