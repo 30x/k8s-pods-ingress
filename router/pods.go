@@ -17,10 +17,10 @@ limitations under the License.
 package router
 
 import (
-	"log"
-	"strconv"
 	"hash/fnv"
+	"log"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/30x/k8s-router/utils"
@@ -35,7 +35,7 @@ import (
 const (
 	hostnameRegexStr    = "^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\\-]*[a-zA-Z0-9])\\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\\-]*[A-Za-z0-9])$"
 	ipRegexStr          = "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$"
-	pathSegmentRegexStr = "^[A-Za-z0-9\\-._~!$&'()*+,;=:@]|%[0-9A-Fa-f]{2}$"
+	pathSegmentRegexStr = `^([A-Za-z0-9\-._~!$&'()*+,;=:@]+|%[0-9A-Fa-f]{2})+$`
 )
 
 type pathPair struct {
@@ -97,11 +97,10 @@ func GetRoutablePodList(config *Config, kubeClient *client.Client) (*api.PodList
 	return podList, nil
 }
 
-
 /*
  Calculate hash for hosts and paths annotations to compare when pod is modified
 */
-func calculateAnnotationHash(config *Config, pod *api.Pod) (uint64) {
+func calculateAnnotationHash(config *Config, pod *api.Pod) uint64 {
 	h := fnv.New64()
 	h.Write([]byte(pod.Annotations[config.HostsAnnotation]))
 	h.Write([]byte(pod.Annotations[config.PathsAnnotation]))
@@ -111,13 +110,13 @@ func calculateAnnotationHash(config *Config, pod *api.Pod) (uint64) {
 /*
  Converts a Kubernetes pod model to our model
 */
-func ConvertPodToModel(config *Config, pod *api.Pod) (*PodWithRoutes) {
+func ConvertPodToModel(config *Config, pod *api.Pod) *PodWithRoutes {
 	return &PodWithRoutes{
-		Name: pod.Name,
-		Namespace: pod.Namespace,
-		Status: pod.Status.Phase,
+		Name:           pod.Name,
+		Namespace:      pod.Namespace,
+		Status:         pod.Status.Phase,
 		AnnotationHash: calculateAnnotationHash(config, pod),
-		Routes: GetRoutes(config, pod),
+		Routes:         GetRoutes(config, pod),
 	}
 }
 
@@ -188,24 +187,26 @@ func GetRoutes(config *Config, pod *api.Pod) []*Route {
 
 								// Validate the path (when necessary)
 								if port > 0 {
-									pathSegments := strings.Split(pathParts[1], "/")
-									valid := true
+									if strings.HasPrefix(pathParts[1], "/") {
+										pathSegments := strings.Split(pathParts[1], "/")
+										valid := true
 
-									for i, pathSegment := range pathSegments {
-										// Skip the first and last entry
-										if (i == 0 || i == len(pathSegments)-1) && pathSegment == "" {
-											continue
-										} else if !pathSegmentRegex.MatchString(pathSegment) {
-											log.Printf("    Pod (%s) routing issue: publicPath path (%s) is not valid\n", pod.Name, pathParts[1])
+										for i, pathSegment := range pathSegments {
+											// Skip the first and last entry
+											if (i == 0 || i == len(pathSegments)-1) && pathSegment == "" {
+												continue
+											} else if !pathSegmentRegex.MatchString(pathSegment) {
+												log.Printf("    Pod (%s) routing issue: publicPath path (%s) is not valid\n", pod.Name, pathParts[1])
 
-											valid = false
+												valid = false
 
-											break
+												break
+											}
 										}
-									}
 
-									if valid {
-										cPathPair.Path = pathParts[1]
+										if valid {
+											cPathPair.Path = pathParts[1]
+										}
 									}
 								}
 
@@ -286,7 +287,7 @@ func UpdatePodCacheForEvents(config *Config, cache map[string]*PodWithRoutes, ev
 				if !ok || calculateAnnotationHash(config, pod) != cached.AnnotationHash || pod.Status.Phase != cached.Status {
 					needsRestart = true
 				}
-				
+
 				// Add/Update the cache entry
 				cache[pod.Name] = ConvertPodToModel(config, pod)
 			} else {
